@@ -61,11 +61,9 @@ async function fetchPost(channel: string, postId: number): Promise<{ text: strin
 
     if (!text) return null;
 
-    // Auto-translate non-Latin text (Hebrew, Farsi, Arabic, etc.)
-    if (hasNonLatinText(text)) {
-      text = await translateFreeText(text);
-    }
-
+    // Cache the raw text — translation is applied per-request below, based on
+    // the requester's chosen UI language, so switching languages doesn't
+    // serve stale translations from the cache.
     const result = { text, date };
     postCache[cacheKey] = result;
     return result;
@@ -138,6 +136,7 @@ async function findLatestPostId(channel: string): Promise<number> {
 export async function GET(req: Request) {
   const { server } = getConflictFromRequest(req);
   const channels = server.telegramChannels;
+  const lang = new URL(req.url).searchParams.get('lang') || 'en';
 
   // Process ALL channels in parallel — each finds latest + fetches 3 posts
   const channelResults = await Promise.allSettled(
@@ -178,6 +177,25 @@ export async function GET(req: Request) {
 
   // Sort newest first
   allPosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Translate into the requested UI language. In English mode, only
+  // non-Latin (e.g. Hebrew, Arabic, Farsi) posts need translating; in any
+  // other language, every post is passed through since the channels post in
+  // a mix of English and non-Latin scripts.
+  const postsToTranslate = lang === 'en'
+    ? allPosts.filter(p => hasNonLatinText(p.text))
+    : allPosts;
+
+  if (postsToTranslate.length > 0) {
+    const translations = await Promise.allSettled(
+      postsToTranslate.map(p => translateFreeText(p.text, lang))
+    );
+    translations.forEach((result, i) => {
+      if (result.status === 'fulfilled' && result.value) {
+        postsToTranslate[i].text = result.value;
+      }
+    });
+  }
 
   return NextResponse.json({
     posts: allPosts,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed, formatPrice } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface OilData {
   type: string;
@@ -12,6 +13,7 @@ interface OilData {
 
 export default function MetricsBar() {
   const { data: oilData } = useConflictFeed<OilData[]>('/api/oil', 600000);
+  const t = useT();
 
   const wti = oilData?.find(o => o.type === 'crude_wti');
   const brent = oilData?.find(o => o.type === 'crude_brent');
@@ -19,22 +21,22 @@ export default function MetricsBar() {
 
   const metrics = [
     {
-      label: 'WTI CRUDE',
+      label: t('metrics.wti'),
       value: wti ? `$${formatPrice(wti.price)}` : '---',
       change: wti?.changePercent || 0,
     },
     {
-      label: 'BRENT',
+      label: t('metrics.brent'),
       value: brent ? `$${formatPrice(brent.price)}` : '---',
       change: brent?.changePercent || 0,
     },
     {
-      label: 'NAT GAS',
+      label: t('metrics.natGas'),
       value: natGas ? `$${formatPrice(natGas.price)}` : '---',
       change: natGas?.changePercent || 0,
     },
     {
-      label: 'THREAT LEVEL',
+      label: t('metrics.threatLevel'),
       value: 'ELEVATED',
       change: 0,
       isThreat: true,

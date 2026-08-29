@@ -2,6 +2,7 @@
 
 import { useConflictFeed } from '@/lib/hooks';
 import { useConflict } from '@/lib/conflicts/context';
+import { useT } from '@/lib/i18n';
 import type { RegionBox } from '@/lib/conflicts';
 
 interface FireEvent {
@@ -42,6 +43,7 @@ function getRegion(lat: number, lon: number, boxes: RegionBox[], fallback: strin
 
 export default function SatellitePanel() {
   const { config } = useConflict();
+  const t = useT();
   const { regionBoxes, defaultRegion } = config.client;
   const { data, loading } = useConflictFeed<FIRMSData>('/api/fires', 600000); // 10 min refresh
 
@@ -49,7 +51,7 @@ export default function SatellitePanel() {
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: '#ff6600' }} />
-        SAT THERMAL DETECT
+        {t('satellite.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
           NASA FIRMS
         </span>
@@ -59,15 +61,15 @@ export default function SatellitePanel() {
       <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[var(--border-color)] bg-[var(--bg-panel-header)]">
         <div className="text-center">
           <div className="text-sm font-bold text-[var(--text-primary)]">{data?.total || 0}</div>
-          <div className="text-[8px] text-[var(--text-secondary)]">HOTSPOTS</div>
+          <div className="text-[8px] text-[var(--text-secondary)]">{t('satellite.hotspots')}</div>
         </div>
         <div className="text-center">
           <div className="text-sm font-bold" style={{ color: '#ff6600' }}>{data?.highIntensity || 0}</div>
-          <div className="text-[8px] text-[var(--text-secondary)]">HIGH INT</div>
+          <div className="text-[8px] text-[var(--text-secondary)]">{t('satellite.highInt')}</div>
         </div>
         <div className="text-center">
           <div className="text-sm font-bold text-[var(--red)]">{data?.possibleExplosions || 0}</div>
-          <div className="text-[8px] text-[var(--text-secondary)]">FLAGGED</div>
+          <div className="text-[8px] text-[var(--text-secondary)]">{t('satellite.flagged')}</div>
         </div>
       </div>
 
@@ -80,7 +82,7 @@ export default function SatellitePanel() {
           </div>
         ) : data?.events.length === 0 ? (
           <div className="p-4 text-center text-[var(--text-secondary)] text-xs">
-            No thermal anomalies detected in region
+            {t('satellite.empty')}
           </div>
         ) : (
           data?.events.slice(0, 30).map((event, i) => {
@@ -99,7 +101,7 @@ export default function SatellitePanel() {
                     <span className="text-[10px] font-medium">{region}</span>
                     {event.possibleExplosion && (
                       <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-red-900/30 text-[var(--red)]">
-                        FLAGGED
+                        {t('satellite.flagged')}
                       </span>
                     )}
                   </div>

@@ -2,10 +2,12 @@
 
 import { useConflictFeed, timeAgo, useTick } from '@/lib/hooks';
 import { useConflict } from '@/lib/conflicts/context';
+import { useT } from '@/lib/i18n';
 import type { NewsItem } from '@/types';
 
 export default function NewsFeed() {
   const { config } = useConflict();
+  const t = useT();
   const SOURCE_COLORS = config.client.sourceColors;
   const { data: news, loading, lastUpdated } = useConflictFeed<NewsItem[]>('/api/news', 90000);
   useTick(15000);
@@ -14,9 +16,9 @@ export default function NewsFeed() {
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" />
-        LIVE INTEL FEED
+        {t('news.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
-          {news?.length || 0} items · {lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}
+          {news?.length || 0} {t('news.items')} · {lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">

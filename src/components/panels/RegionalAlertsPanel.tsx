@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useConflictFeed, timeAgo, useTick } from '@/lib/hooks';
 import { useConflict } from '@/lib/conflicts/context';
+import { useT } from '@/lib/i18n';
 
 interface CountryEvent {
   title: string;
@@ -41,6 +42,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export default function RegionalAlertsPanel() {
   const { config } = useConflict();
+  const t = useT();
   const COUNTRY_COLORS = config.client.countryColors;
   const { data, loading } = useConflictFeed<RegionalData>('/api/regional-alerts', 60000);
   useTick(15000);
@@ -77,9 +79,9 @@ export default function RegionalAlertsPanel() {
             animation: sorted.some(a => a.level === 'CRITICAL') ? 'pulse-dot 0.5s ease-in-out infinite' : undefined,
           }}
         />
-        REGIONAL THREAT MONITOR
+        {t('regional.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
-          {sorted.filter(a => a.level !== 'CLEAR').length} active
+          {sorted.filter(a => a.level !== 'CLEAR').length} {t('regional.active')}
         </span>
       </div>
 

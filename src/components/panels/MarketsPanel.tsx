@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed, formatPrice, formatChange } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface MarketItem {
   symbol: string;
@@ -13,6 +14,7 @@ interface MarketItem {
 
 export default function MarketsPanel() {
   const { data: markets, loading } = useConflictFeed<MarketItem[]>('/api/markets', 600000);
+  const t = useT();
 
   const indices = markets?.filter(m =>
     ['^DJI', '^GSPC', '^VIX', 'GC=F', 'DX-Y.NYB'].includes(m.symbol)
@@ -25,7 +27,7 @@ export default function MarketsPanel() {
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" />
-        DEFENSE & MARKETS
+        {t('markets.title')}
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading ? (
@@ -37,7 +39,7 @@ export default function MarketsPanel() {
         ) : (
           <>
             <div className="px-3 pt-2 pb-1">
-              <span className="text-[9px] text-[var(--text-accent)] tracking-widest">INDICES</span>
+              <span className="text-[9px] text-[var(--text-accent)] tracking-widest">{t('markets.indices')}</span>
             </div>
             {indices?.map((item, i) => (
               <div key={i} className="data-row flex items-center justify-between">
@@ -58,7 +60,7 @@ export default function MarketsPanel() {
             ))}
 
             <div className="px-3 pt-3 pb-1">
-              <span className="text-[9px] text-[var(--text-accent)] tracking-widest">DEFENSE CONTRACTORS</span>
+              <span className="text-[9px] text-[var(--text-accent)] tracking-widest">{t('markets.defenseContractors')}</span>
             </div>
             {defense?.map((item, i) => (
               <div key={i} className="data-row flex items-center justify-between">

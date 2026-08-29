@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed, timeAgo, useTick } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 import type { ConflictEvent } from '@/types';
 
 const TYPE_COLORS: Record<string, string> = {
@@ -14,6 +15,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function ConflictFeed() {
   const { data: rawEvents, loading } = useConflictFeed<ConflictEvent[]>('/api/conflicts', 180000);
+  const t = useT();
   useTick(15000);
 
   // Sort most recent first
@@ -25,9 +27,9 @@ export default function ConflictFeed() {
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: 'var(--red)' }} />
-        CONFLICT MONITOR
+        {t('conflictFeed.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
-          {events?.length || 0} events
+          {events?.length || 0} {t('conflictFeed.events')}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -39,7 +41,7 @@ export default function ConflictFeed() {
           </div>
         ) : events?.length === 0 ? (
           <div className="p-4 text-center text-[var(--text-secondary)] text-xs">
-            No recent conflict events reported
+            {t('conflictFeed.empty')}
           </div>
         ) : (
           events?.map((event, i) => {
@@ -68,7 +70,7 @@ export default function ConflictFeed() {
                   {event.description}
                 </p>
                 <span className="text-[8px] text-[var(--text-secondary)]">
-                  via {event.source}
+                  {t('conflictFeed.via')} {event.source}
                 </span>
               </div>
             );

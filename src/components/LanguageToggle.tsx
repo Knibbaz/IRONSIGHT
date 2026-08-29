@@ -1,34 +1,39 @@
 'use client';
 
-import { useConflict } from '@/lib/conflicts/context';
-import { CONFLICT_KEYS, CONFLICTS } from '@/lib/conflicts';
+import { useLanguage } from '@/lib/language/context';
 import { useT } from '@/lib/i18n';
 
-// Segmented control that flips the whole dashboard between conflicts.
-export default function ConflictToggle() {
-  const { key, setConflict } = useConflict();
+const LANGS: { key: 'en' | 'nl'; label: string }[] = [
+  { key: 'en', label: 'EN' },
+  { key: 'nl', label: 'NL' },
+];
+
+// Segmented control that switches the UI language and the translation
+// target for live feed content (news, Telegram, conflict/strike/alert titles).
+export default function LanguageToggle() {
+  const { lang, setLang } = useLanguage();
   const t = useT();
 
   return (
     <div className="flex items-center gap-1">
       <span className="text-[8px] text-[var(--text-secondary)] tracking-[2px] hidden md:inline">
-        {t('header.theater')}
+        {t('header.language')}
       </span>
       <div className="flex items-center rounded border border-[var(--border-color)] overflow-hidden">
-        {CONFLICT_KEYS.map(k => {
-          const active = k === key;
+        {LANGS.map(({ key, label }) => {
+          const active = key === lang;
           return (
             <button
-              key={k}
-              onClick={() => setConflict(k)}
+              key={key}
+              onClick={() => setLang(key)}
               className="text-[9px] font-bold tracking-[1px] px-2 py-1 transition-colors"
               style={{
                 color: active ? '#0a0e17' : 'var(--text-secondary)',
                 background: active ? 'var(--cyan)' : 'transparent',
               }}
-              title={t('header.switchTheater', { label: CONFLICTS[k].label })}
+              title={label}
             >
-              {CONFLICTS[k].label}
+              {label}
             </button>
           );
         })}

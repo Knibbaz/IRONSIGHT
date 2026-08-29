@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed, formatPrice, formatChange } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface OilData {
   type: string;
@@ -13,12 +14,13 @@ interface OilData {
 
 export default function OilPanel() {
   const { data: prices, loading } = useConflictFeed<OilData[]>('/api/oil', 600000);
+  const t = useT();
 
   return (
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" />
-        ENERGY MARKETS
+        {t('oil.title')}
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading ? (

@@ -2,6 +2,7 @@
 
 import { useConflictFeed } from '@/lib/hooks';
 import { useConflict } from '@/lib/conflicts/context';
+import { useT } from '@/lib/i18n';
 
 interface NavalVessel {
   name: string;
@@ -39,6 +40,7 @@ const TYPE_ICONS: Record<string, string> = {
 
 export default function NavalPanel() {
   const { config } = useConflict();
+  const t = useT();
   const NAVY_COLORS = config.client.navyColors;
   const { data, loading } = useConflictFeed<NavalData>('/api/ships', 300000);
 
@@ -61,9 +63,9 @@ export default function NavalPanel() {
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: 'var(--blue)' }} />
-        NAVAL TRACKER
+        {t('naval.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
-          {data?.totalTracked || 0} vessels // OSINT
+          {data?.totalTracked || 0} {t('naval.vessels')}
         </span>
       </div>
 

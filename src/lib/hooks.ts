@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useConflict } from './conflicts/context';
+import { useLanguage } from './language/context';
 
 export function useDataFeed<T>(url: string, interval: number = 60000, initialData: T | null = null) {
   const [data, setData] = useState<T | null>(initialData);
@@ -40,12 +41,14 @@ export function useDataFeed<T>(url: string, interval: number = 60000, initialDat
 
 /**
  * Like useDataFeed, but automatically appends the active conflict as a
- * `?conflict=<key>` query param. When the user toggles conflicts the URL
- * changes, so the feed re-fetches for the newly selected theater.
+ * `?conflict=<key>` query param, and the active UI language as `&lang=<lang>`.
+ * When the user toggles conflicts or language the URL changes, so the feed
+ * re-fetches for the newly selected theater/language.
  */
 export function useConflictFeed<T>(path: string, interval: number = 60000, initialData: T | null = null) {
   const { key } = useConflict();
-  const url = `${path}${path.includes('?') ? '&' : '?'}conflict=${key}`;
+  const { lang } = useLanguage();
+  const url = `${path}${path.includes('?') ? '&' : '?'}conflict=${key}&lang=${lang}`;
   return useDataFeed<T>(url, interval, initialData);
 }
 

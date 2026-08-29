@@ -94,15 +94,15 @@ export function isHebrew(text: string): boolean {
 }
 
 /**
- * Translate free-form text to English using Google Translate (free, no key)
- * Supports auto-detection of Hebrew, Arabic, Farsi
+ * Translate free-form text to a target language using Google Translate (free, no key)
+ * Supports auto-detection of source language (Hebrew, Arabic, Farsi, English, ...)
  * Falls back to original text on failure
  */
-export async function translateFreeText(text: string): Promise<string> {
+export async function translateFreeText(text: string, targetLang: string = 'en'): Promise<string> {
   if (!text) return text;
 
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
 
     const res = await fetch(url, {
       signal: AbortSignal.timeout(3000),
@@ -120,11 +120,11 @@ export async function translateFreeText(text: string): Promise<string> {
 }
 
 /**
- * Batch translate multiple Hebrew strings
+ * Batch translate multiple strings to a target language
  */
-export async function translateBatch(texts: string[]): Promise<string[]> {
+export async function translateBatch(texts: string[], targetLang: string = 'en'): Promise<string[]> {
   const results = await Promise.allSettled(
-    texts.map(t => translateFreeText(t))
+    texts.map(t => translateFreeText(t, targetLang))
   );
   return results.map((r, i) =>
     r.status === 'fulfilled' ? r.value : texts[i]

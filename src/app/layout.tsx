@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { ConflictProvider } from "@/lib/conflicts/context";
+import { LanguageProvider } from "@/lib/language/context";
 
 export const metadata: Metadata = {
   title: "IRONSIGHT // OSINT Command Center",
@@ -36,9 +37,11 @@ export default function RootLayout({
         />
       </head>
       <body className="scanlines antialiased">
-        <ConflictProvider>
-          {children}
-        </ConflictProvider>
+        <LanguageProvider>
+          <ConflictProvider>
+            {children}
+          </ConflictProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface MilFlight {
   icao24: string;
@@ -63,6 +64,7 @@ function focusOnMapTarget(id: string, lat: number, lon: number, type: 'aircraft'
 
 export default function FlightsPanel() {
   const { data, loading } = useConflictFeed<FlightDataResponse>('/api/flights', 180000);
+  const t = useT();
 
   // Group by type
   const byType: Record<string, number> = {};
@@ -74,9 +76,9 @@ export default function FlightsPanel() {
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: 'var(--cyan)' }} />
-        MIL AIRSPACE
+        {t('flights.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
-          {data?.military || 0} mil / {data?.total || 0} total // adsb.lol
+          {t('flights.milOfTotal', { mil: data?.military || 0, total: data?.total || 0 })}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -88,8 +90,8 @@ export default function FlightsPanel() {
           </div>
         ) : data?.flights.length === 0 ? (
           <div className="p-4 text-center text-[var(--text-secondary)] text-xs">
-            No military aircraft detected on ADS-B<br />
-            <span className="text-[8px]">(many mil flights disable transponders)</span>
+            {t('flights.empty')}<br />
+            <span className="text-[8px]">{t('flights.emptyHint')}</span>
           </div>
         ) : (
           <>

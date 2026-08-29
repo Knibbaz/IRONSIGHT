@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed, timeAgo, useTick } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface StrikeEvent {
   id: string;
@@ -32,6 +33,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export default function StrikesPanel() {
   const { data: strikes, loading } = useConflictFeed<StrikeEvent[]>('/api/strikes', 120000);
+  const t = useT();
   useTick(15000);
 
   // Count by category
@@ -44,9 +46,9 @@ export default function StrikesPanel() {
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: 'var(--red)', animation: 'pulse-dot 1s ease-in-out infinite' }} />
-        MISSILE / STRIKE TRACKER
+        {t('strikes.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
-          {strikes?.length || 0} events
+          {strikes?.length || 0} {t('strikes.events')}
         </span>
       </div>
 
@@ -75,7 +77,7 @@ export default function StrikesPanel() {
           </div>
         ) : strikes?.length === 0 ? (
           <div className="p-4 text-center text-[var(--text-secondary)] text-xs">
-            No strike events detected
+            {t('strikes.empty')}
           </div>
         ) : (
           strikes?.map((strike, i) => {

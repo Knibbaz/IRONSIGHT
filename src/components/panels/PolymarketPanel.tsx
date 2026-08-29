@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface MarketOutcome {
   label: string;
@@ -32,17 +33,18 @@ function formatVolume(v: number): string {
 
 export default function PolymarketPanel() {
   const { data, loading } = useConflictFeed<PolymarketData>('/api/polymarket', 600000);
+  const t = useT();
 
   return (
     <div className="panel h-full flex flex-col">
       <div className="panel-header flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="status-dot" style={{ background: '#5affb0' }} />
-          PREDICTION MARKETS
+          {t('polymarket.title')}
         </div>
         {data && (
           <span className="text-[9px] text-[var(--text-secondary)]">
-            {data.count} markets // Polymarket
+            {t('polymarket.marketsCount', { count: data.count })}
           </span>
         )}
       </div>
@@ -55,7 +57,7 @@ export default function PolymarketPanel() {
           </div>
         ) : !data?.markets?.length ? (
           <div className="p-4 text-center text-[10px] text-[var(--text-secondary)]">
-            No active prediction markets found
+            {t('polymarket.empty')}
           </div>
         ) : (
           data.markets.map((market) => {
@@ -86,7 +88,7 @@ export default function PolymarketPanel() {
                       {yesPrice}%
                     </div>
                     <div className="text-[8px] text-[var(--text-secondary)]">
-                      {yesOutcome?.label || 'YES'}
+                      {yesOutcome?.label || t('polymarket.yes')}
                     </div>
                     {changePercent && (
                       <div className={`text-[9px] ${parseFloat(changePercent) >= 0 ? 'value-up' : 'value-down'}`}>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useConflictFeed } from '@/lib/hooks';
 import { useConflict } from '@/lib/conflicts/context';
 import { playAlertSound } from '@/lib/generateAlert';
+import { useT } from '@/lib/i18n';
 
 interface AlertData {
   status: 'ACTIVE' | 'CLEAR';
@@ -47,6 +48,7 @@ const TYPE_ICONS: Record<string, string> = {
 
 export default function AlertsPanel() {
   const { config } = useConflict();
+  const t = useT();
   const alertSystemName = config.client.alertSystemName;
   const { data, loading } = useConflictFeed<AlertData>('/api/alerts', 15000);
   const { data: droneData } = useConflictFeed<DroneData>('/api/drones', 20000);
@@ -130,7 +132,7 @@ export default function AlertsPanel() {
               borderColor: soundEnabled ? 'var(--cyan)' : 'var(--border-color)',
               background: soundEnabled ? 'rgba(0,212,255,0.1)' : 'transparent',
             }}
-            title={soundEnabled ? 'Sound alerts ON' : 'Sound alerts OFF'}
+            title={soundEnabled ? t('alerts.soundAlertsOn') : t('alerts.soundAlertsOff')}
           >
             {soundEnabled ? '🔔' : '🔕'}
           </button>
@@ -139,7 +141,7 @@ export default function AlertsPanel() {
           >
             {hasThreat
               ? `${data?.activeCount || 0} ALERT${drones.length ? ` · ${drones.length} TRK` : ''}`
-              : 'ALL CLEAR'}
+              : t('alerts.allClear')}
           </span>
         </div>
       </div>
@@ -148,7 +150,7 @@ export default function AlertsPanel() {
         {drones.length > 0 && (
           <div className="border-b border-[var(--border-color)]">
             <div className="px-3 py-1 text-[9px] tracking-widest text-[var(--text-secondary)] bg-[var(--bg-panel-header)]">
-              LIVE TRACKS // {drones.length} INBOUND
+              {t('alerts.liveTracksInbound', { count: drones.length })}
             </div>
             {drones.slice(0, 12).map(d => (
               <div key={d.id} className="data-row flex items-center gap-2">
@@ -178,10 +180,10 @@ export default function AlertsPanel() {
                 <span className="text-lg">🚨</span>
                 <div>
                   <div className="text-xs font-bold text-[var(--red)]">
-                    INCOMING THREAT DETECTED
+                    {t('alerts.incomingThreat')}
                   </div>
                   <div className="text-[9px] text-[var(--text-secondary)]">
-                    {alertSystemName} sirens activated
+                    {t('alerts.sirensActivated', { system: alertSystemName })}
                   </div>
                 </div>
               </div>
@@ -210,7 +212,7 @@ export default function AlertsPanel() {
         ) : drones.length > 0 ? (
           // Drones inbound but no oblast siren active — the LIVE TRACKS section above covers it
           <div className="px-3 py-2 text-[9px] text-[var(--text-secondary)]">
-            No oblast air-raid sirens active · tracking {drones.length} inbound threat{drones.length > 1 ? 's' : ''} above
+            {t('alerts.noSirens', { count: drones.length, plural: drones.length > 1 ? 's' : '' })}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full p-4">
@@ -220,15 +222,15 @@ export default function AlertsPanel() {
                 <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <div className="text-sm font-bold text-[var(--green)] mb-1">ALL CLEAR</div>
+            <div className="text-sm font-bold text-[var(--green)] mb-1">{t('alerts.allClear')}</div>
             <div className="text-[9px] text-[var(--text-secondary)] text-center">
-              No active alerts from {alertSystemName}
+              {t('alerts.noActiveAlerts', { system: alertSystemName })}
             </div>
             <div className="text-[8px] text-[var(--text-secondary)] mt-2">
-              Polling every 5s • Last: {data?.lastChecked ? new Date(data.lastChecked).toLocaleTimeString() : '...'}
+              {t('alerts.pollingLast', { time: data?.lastChecked ? new Date(data.lastChecked).toLocaleTimeString() : '...' })}
             </div>
             <div className="text-[8px] mt-1" style={{ color: soundEnabled ? 'var(--cyan)' : 'var(--text-secondary)' }}>
-              Sound: {soundEnabled ? 'ON' : 'OFF'} {!hasInteracted && soundEnabled ? '(click anywhere to enable)' : ''}
+              {soundEnabled ? t('alerts.soundOn') : t('alerts.soundOff')} {!hasInteracted && soundEnabled ? t('alerts.clickToEnable') : ''}
             </div>
           </div>
         )}

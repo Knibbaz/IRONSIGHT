@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed, timeAgo } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface TelegramPost {
   channel: string;
@@ -20,14 +21,15 @@ interface TelegramData {
 
 export default function TelegramPanel() {
   const { data, loading, lastUpdated } = useConflictFeed<TelegramData>('/api/telegram', 60000);
+  const t = useT();
 
   return (
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: 'var(--cyan)' }} />
-        TELEGRAM OSINT (UNVERIFIED)
+        {t('telegram.title')}
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
-          {data?.posts.length || 0} posts // {data?.channels.length || 0} channels{lastUpdated ? ` // ${new Date(lastUpdated).toLocaleTimeString()}` : ''}
+          {data?.posts.length || 0} {t('telegram.posts')} // {data?.channels.length || 0} {t('telegram.channels')}{lastUpdated ? ` // ${new Date(lastUpdated).toLocaleTimeString()}` : ''}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -39,7 +41,7 @@ export default function TelegramPanel() {
           </div>
         ) : data?.posts.length === 0 ? (
           <div className="p-4 text-center text-[var(--text-secondary)] text-xs">
-            No recent Telegram posts
+            {t('telegram.empty')}
           </div>
         ) : (
           data?.posts.map((post) => (

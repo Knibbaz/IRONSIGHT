@@ -1,6 +1,7 @@
 'use client';
 
 import { useConflictFeed } from '@/lib/hooks';
+import { useT } from '@/lib/i18n';
 
 interface CryptoData {
   name: string;
@@ -19,12 +20,13 @@ const SYMBOL_COLORS: Record<string, string> = {
 
 export default function CryptoPanel() {
   const { data: prices, loading } = useConflictFeed<CryptoData[]>('/api/crypto', 600000);
+  const t = useT();
 
   return (
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: '#f7931a' }} />
-        CRYPTO MARKETS
+        {t('crypto.title')}
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading ? (
