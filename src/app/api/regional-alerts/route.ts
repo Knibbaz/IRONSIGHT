@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { getConflictFromRequest } from '@/lib/conflicts';
+import { translateBatch } from '@/lib/hebrew';
+import { isBlockedSource } from '@/lib/sourceFilter';
+import { reconcilePubDate } from '@/lib/articleDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,19 +93,22 @@ export async function GET(req: Request) {
             let title = getTextContent(item, 'title');
             const link = getTextContent(item, 'link');
             const pubDate = getTextContent(item, 'pubDate');
+            const sourceUrl = item.getElementsByTagName('source')[0]?.getAttribute('url') || '';
+            if (isBlockedSource(link) || isBlockedSource(sourceUrl)) continue;
 
             // Strip Google News source suffix
             const dashIdx = title.lastIndexOf(' - ');
             const source = dashIdx > 0 ? title.substring(dashIdx + 3) : 'Google News';
             if (dashIdx > 0) title = title.substring(0, dashIdx);
 
-            const pubTime = new Date(pubDate).getTime();
+            const reconciledDate = reconcilePubDate(pubDate, link);
+            const pubTime = new Date(reconciledDate).getTime();
             const hoursAgo = (now - pubTime) / (1000 * 60 * 60);
 
             events.push({
               title,
               source,
-              time: pubDate,
+              time: reconciledDate,
               url: link,
               severity: scoreSeverity(title),
               hoursAgo: Math.round(hoursAgo * 10) / 10,
@@ -132,6 +138,13 @@ export async function GET(req: Request) {
   // Sort: most active first
   const levelOrder: Record<string, number> = { CRITICAL: 0, ALERT: 1, MONITORING: 2, CLEAR: 3 };
   results.sort((a, b) => (levelOrder[a.level] ?? 3) - (levelOrder[b.level] ?? 3));
+
+  const lang = new URL(req.url).searchParams.get('lang') || 'en';
+  const allEvents = results.flatMap(r => r.events);
+  if (lang !== 'en' && allEvents.length > 0) {
+    const translated = await translateBatch(allEvents.map(e => e.title), lang);
+    allEvents.forEach((e, i) => { e.title = translated[i]; });
+  }
 
   return NextResponse.json({
     alerts: results,

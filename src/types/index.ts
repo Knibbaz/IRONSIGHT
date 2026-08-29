@@ -38,6 +38,7 @@ export interface ConflictEvent {
   lon: number;
   description: string;
   source: string;
+  url?: string;
   fatalities?: number;
 }
 

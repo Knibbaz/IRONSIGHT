@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { getConflictFromRequest } from '@/lib/conflicts';
+import { translateBatch } from '@/lib/hebrew';
+import { isBlockedSource } from '@/lib/sourceFilter';
+import { reconcilePubDate } from '@/lib/articleDate';
 import type { ConflictEvent } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +31,9 @@ export async function GET(req: Request) {
         const item = items[i];
         let title = getTextContent(item, 'title');
         const pubDate = getTextContent(item, 'pubDate');
+        const link = getTextContent(item, 'link');
+        const sourceUrl = item.getElementsByTagName('source')[0]?.getAttribute('url') || '';
+        if (isBlockedSource(link) || isBlockedSource(sourceUrl)) continue;
 
         const dashIdx = title.lastIndexOf(' - ');
         const source = dashIdx > 0 ? title.substring(dashIdx + 3) : 'Google News';
@@ -54,13 +60,14 @@ export async function GET(req: Request) {
 
         events.push({
           id: `gn-${allEvents.length + events.length}-${Date.now()}`,
-          date: pubDate || new Date().toISOString(),
+          date: reconcilePubDate(pubDate || new Date().toISOString(), link),
           type,
           location,
           lat: 0,
           lon: 0,
           description: title,
           source,
+          url: link || undefined,
         });
       }
       return events;
@@ -73,6 +80,12 @@ export async function GET(req: Request) {
 
   // Sort newest first
   allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const lang = new URL(req.url).searchParams.get('lang') || 'en';
+  if (lang !== 'en' && allEvents.length > 0) {
+    const translated = await translateBatch(allEvents.map(e => e.description), lang);
+    allEvents.forEach((e, i) => { e.description = translated[i]; });
+  }
 
   return NextResponse.json(allEvents, {
     headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },

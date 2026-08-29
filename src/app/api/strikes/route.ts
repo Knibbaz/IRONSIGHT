@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { getConflictFromRequest } from '@/lib/conflicts';
+import { translateBatch } from '@/lib/hebrew';
+import { isBlockedSource } from '@/lib/sourceFilter';
+import { reconcilePubDate } from '@/lib/articleDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +29,8 @@ export async function GET(req: Request) {
         let title = getTextContent(item, 'title');
         const pubDate = getTextContent(item, 'pubDate');
         const link = getTextContent(item, 'link');
+        const sourceUrl = item.getElementsByTagName('source')[0]?.getAttribute('url') || '';
+        if (isBlockedSource(link) || isBlockedSource(sourceUrl)) continue;
 
         const dashIdx = title.lastIndexOf(' - ');
         const source = dashIdx > 0 ? title.substring(dashIdx + 3) : '';
@@ -56,7 +61,7 @@ export async function GET(req: Request) {
 
         strikes.push({
           id: `strike-${strikes.length}-${Date.now()}`,
-          date: pubDate || new Date().toISOString(),
+          date: reconcilePubDate(pubDate || new Date().toISOString(), link),
           category, severity, title, source, url: link, country,
         });
       }
@@ -74,7 +79,15 @@ export async function GET(req: Request) {
 
   deduped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  return NextResponse.json(deduped.slice(0, 25), {
+  const final = deduped.slice(0, 25);
+
+  const lang = new URL(req.url).searchParams.get('lang') || 'en';
+  if (lang !== 'en' && final.length > 0) {
+    const translated = await translateBatch(final.map(s => s.title), lang);
+    final.forEach((s, i) => { s.title = translated[i]; });
+  }
+
+  return NextResponse.json(final, {
     headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
   });
 }

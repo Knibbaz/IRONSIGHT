@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { isHebrew, translateFreeText } from '@/lib/hebrew';
 import { getConflictFromRequest } from '@/lib/conflicts';
+import { isBlockedSource } from '@/lib/sourceFilter';
+import { reconcilePubDate } from '@/lib/articleDate';
 import type { NewsItem } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -56,11 +58,17 @@ async function fetchRSS(feedUrl: string, source: string): Promise<NewsItem[]> {
         }
       }
 
+      // Google News wraps every article link behind news.google.com — the
+      // real publisher domain (needed for source blocking) lives in the
+      // <source url="..."> tag instead.
+      const sourceUrl = item.getElementsByTagName('source')[0]?.getAttribute('url') || '';
+      if (isBlockedSource(link) || isBlockedSource(sourceUrl)) continue;
+
       results.push({
         title,
         link,
         source,
-        pubDate,
+        pubDate: reconcilePubDate(pubDate, link),
         category: getTextContent(item, 'category') || undefined,
       });
     }
@@ -95,19 +103,6 @@ export async function GET(req: Request) {
     .flatMap(r => r.value)
     .filter(isRelevant);
 
-  // Translate Hebrew titles to English
-  const hebrewItems = allNews.filter(item => isHebrew(item.title));
-  if (hebrewItems.length > 0) {
-    const translations = await Promise.allSettled(
-      hebrewItems.map(item => translateFreeText(item.title))
-    );
-    translations.forEach((result, i) => {
-      if (result.status === 'fulfilled' && result.value !== hebrewItems[i].title) {
-        hebrewItems[i].title = result.value;
-      }
-    });
-  }
-
   // Deduplicate by title similarity (exact match after lowercasing)
   const seen = new Set<string>();
   const deduped = allNews.filter(item => {
@@ -125,7 +120,29 @@ export async function GET(req: Request) {
     return distA - distB;
   });
 
-  return NextResponse.json(deduped.slice(0, 100), {
+  const final = deduped.slice(0, 100);
+
+  // Translate titles into the requested UI language. In English mode, only
+  // non-Latin (e.g. Hebrew) titles need translating; in any other language,
+  // every title is passed through so English-language sources are covered too.
+  const url = new URL(req.url);
+  const lang = url.searchParams.get('lang') || 'en';
+  const itemsToTranslate = lang === 'en'
+    ? final.filter(item => isHebrew(item.title))
+    : final;
+
+  if (itemsToTranslate.length > 0) {
+    const translations = await Promise.allSettled(
+      itemsToTranslate.map(item => translateFreeText(item.title, lang))
+    );
+    translations.forEach((result, i) => {
+      if (result.status === 'fulfilled' && result.value !== itemsToTranslate[i].title) {
+        itemsToTranslate[i].title = result.value;
+      }
+    });
+  }
+
+  return NextResponse.json(final, {
     headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
   });
 }
