@@ -62,6 +62,7 @@ interface ConflictEvent {
   lon: number;
   description: string;
   source: string;
+  url?: string;
 }
 
 interface StrikeData {
@@ -122,6 +123,24 @@ function getFlightColor(origin: string, rules: ColorMatchRule[]): string {
   }
   return '#ffaa00';
 }
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Whole-word match — plain .includes() falsely fires on city/country names
+// that appear as a substring of an unrelated word (e.g. "Oman" inside
+// "woman"), which would otherwise mis-attribute a story to the wrong place.
+function containsWord(text: string, word: string): boolean {
+  if (!word) return false;
+  return new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i').test(text);
+}
+
+// Place names that collide with an unrelated, differently-located place of
+// the same name — skip the match when the text clearly points elsewhere.
+const GEOCODE_HOMONYM_EXCLUSIONS: Record<string, string[]> = {
+  doha: ['lebanon', 'beirut'], // a village in south Lebanon shares the name with Doha, Qatar
+};
 
 function animateMarker(marker: L.Marker, targetLat: number, targetLon: number, duration: number) {
   const start = marker.getLatLng();
@@ -226,9 +245,10 @@ function geocodeStrike(
   if (!hasStrikeWord) return null;
 
   for (const [key, place] of targets) {
-    if (text.includes(key) && strikeLocations[key]) {
-      return { coords: strikeLocations[key], place };
-    }
+    if (!strikeLocations[key] || !containsWord(text, key)) continue;
+    const exclusions = GEOCODE_HOMONYM_EXCLUSIONS[key];
+    if (exclusions?.some(w => containsWord(text, w))) continue;
+    return { coords: strikeLocations[key], place };
   }
 
   return null;
@@ -483,7 +503,7 @@ export default function ConflictMap({ className }: MapProps) {
       const recentStrikes = (conflicts || [])
         .filter(e => {
           const text = `${e.description} ${e.location}`.toLowerCase();
-          return text.includes(cityKey) || text.includes(countryKey);
+          return containsWord(text, cityKey) || containsWord(text, countryKey);
         })
         .slice(0, 3);
 
@@ -516,9 +536,12 @@ export default function ConflictMap({ className }: MapProps) {
         html += `<strong style="color:#ff6600;font-size:10px;">RECENT EVENTS</strong><br/>`;
         recentStrikes.forEach(s => {
           const timeStr = new Date(s.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          const snippet = `${s.description.substring(0, 80)}${s.description.length > 80 ? '...' : ''}`;
           html += `<div style="margin:2px 0;font-size:10px;">`;
           html += `<span style="color:${s.type === 'STRIKE' ? '#ff3300' : s.type === 'DRONE' ? '#ff6600' : '#666'};font-weight:bold;">${s.type}</span> `;
-          html += `${s.description.substring(0, 80)}${s.description.length > 80 ? '...' : ''}`;
+          html += s.url
+            ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer" style="color:#000;text-decoration:underline;cursor:pointer;">${snippet}</a>`
+            : snippet;
           html += `<br/><span style="color:#999;font-size:9px;">${s.source} • ${timeStr}</span>`;
           html += `</div>`;
         });
@@ -672,7 +695,7 @@ export default function ConflictMap({ className }: MapProps) {
             Status: ${ship.status}<br/>Region: ${ship.region}${ship.group ? `<br/>Group: ${ship.group}` : ''}
           </div>
         `);
-        marker.bindTooltip(ship.name, { direction: 'top', offset: [0, -8], className: 'naval-label' });
+        marker.bindTooltip(`<span style="color:${color}">${ship.name}</span>`, { direction: 'top', offset: [0, -8], className: 'naval-label' });
         navalLayerRef.current!.addLayer(marker);
         navalMarkersRef.current.set(id, marker);
       }
@@ -847,13 +870,13 @@ export default function ConflictMap({ className }: MapProps) {
     const plottedLocations = new Set<string>(); // Dedup Telegram by location
 
     // Merge news data sources into a common format
-    const allStrikes: { title: string; date: string; source: string; type: string; fromTelegram?: boolean }[] = [];
+    const allStrikes: { title: string; date: string; source: string; type: string; url?: string; fromTelegram?: boolean }[] = [];
 
     // From conflicts API (priority — plotted first)
     if (conflicts) {
       conflicts.forEach(e => {
         if (e.type === 'STRIKE' || e.type === 'DRONE') {
-          allStrikes.push({ title: e.description, date: e.date, source: e.source, type: e.type });
+          allStrikes.push({ title: e.description, date: e.date, source: e.source, type: e.type, url: e.url });
         }
       });
     }
@@ -862,7 +885,7 @@ export default function ConflictMap({ className }: MapProps) {
     if (strikes) {
       strikes.forEach(s => {
         if (s.category === 'MISSILE' || s.category === 'STRIKE' || s.category === 'DRONE') {
-          allStrikes.push({ title: s.title, date: s.date, source: s.source, type: s.category });
+          allStrikes.push({ title: s.title, date: s.date, source: s.source, type: s.category, url: s.url });
         }
       });
     }
@@ -888,6 +911,7 @@ export default function ConflictMap({ className }: MapProps) {
           date: post.date,
           source: `Telegram: ${post.channelLabel}`,
           type,
+          url: post.url,
           fromTelegram: true,
         });
       });
@@ -918,10 +942,13 @@ export default function ConflictMap({ className }: MapProps) {
       const timeStr = new Date(event.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       const typeColor = event.type === 'MISSILE' ? '#ff0044' : event.type === 'DRONE' ? '#ff6600' : '#ff3300';
       const sourceTag = event.fromTelegram ? '📡 ' : '';
+      const titleHtml = event.url
+        ? `<a href="${event.url}" target="_blank" rel="noopener noreferrer" style="color:#000;text-decoration:underline;cursor:pointer;">${event.title}</a>`
+        : event.title;
       const popupHtml = `
         <div style="font-family:monospace;font-size:11px;color:#000;min-width:220px;max-width:300px;">
           <strong style="color:${typeColor};font-size:12px;">${event.type} — ${geo.place}</strong><br/>
-          <div style="margin:4px 0;line-height:1.4;">${event.title}</div>
+          <div style="margin:4px 0;line-height:1.4;">${titleHtml}</div>
           <em style="color:#666;font-size:9px;">${sourceTag}${event.source} • ${timeStr}</em>
         </div>
       `;

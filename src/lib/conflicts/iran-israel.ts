@@ -6,7 +6,7 @@ import type { ConflictConfig } from './types';
 
 export const iranIsrael: ConflictConfig = {
   key: 'iran-israel',
-  label: 'IRAN / ISRAEL',
+  label: 'IRAN / US',
   theater: 'OSINT COMMAND CENTER // UNCLASSIFIED',
 
   client: {
