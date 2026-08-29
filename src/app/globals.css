@@ -92,6 +92,39 @@ body {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+/* Draggable / resizable dashboard grid (react-grid-layout) */
+.panel-header {
+  cursor: grab;
+  /* Reserve a gutter on the right so the floating hide ("✕") button never
+     overlaps a panel's own right-aligned header content (counts, timestamps). */
+  padding-right: 26px;
+}
+
+.panel-header:active {
+  cursor: grabbing;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--cyan);
+  opacity: 0.15;
+  border-radius: 4px;
+}
+
+.react-resizable-handle {
+  z-index: 10;
+}
+
+.react-resizable-handle::after {
+  border-color: var(--cyan) !important;
+  opacity: 0.6;
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.react-grid-item:hover .react-resizable-handle::after {
+  opacity: 1;
+}
+
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }

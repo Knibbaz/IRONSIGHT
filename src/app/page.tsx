@@ -17,7 +17,11 @@ import RegionalAlertsPanel from '@/components/panels/RegionalAlertsPanel';
 import CryptoPanel from '@/components/panels/CryptoPanel';
 import PolymarketPanel from '@/components/panels/PolymarketPanel';
 import ConflictToggle from '@/components/ConflictToggle';
+import LanguageToggle from '@/components/LanguageToggle';
+import PanelVisibilityMenu from '@/components/PanelVisibilityMenu';
 import { useConflict } from '@/lib/conflicts/context';
+import { useT } from '@/lib/i18n';
+import { useDashboardLayout, PANEL_LABELS } from '@/lib/layout';
 import { useState, useEffect } from 'react';
 
 const ConflictMap = dynamic(() => import('@/components/map/ConflictMap'), {
@@ -25,8 +29,15 @@ const ConflictMap = dynamic(() => import('@/components/map/ConflictMap'), {
   loading: () => <div className="panel h-full loading-shimmer" />,
 });
 
+const DashboardGrid = dynamic(() => import('@/components/DashboardGrid'), {
+  ssr: false,
+  loading: () => <div className="flex-1 loading-shimmer" />,
+});
+
 export default function Dashboard() {
   const { key: conflictKey, config } = useConflict();
+  const t = useT();
+  const { layout, onLayoutChange, reset: resetLayout, hidden, togglePanel } = useDashboardLayout();
   const [uptime, setUptime] = useState(0);
 
   useEffect(() => {
@@ -62,17 +73,26 @@ export default function Dashboard() {
             <div>
               <h1 className="text-sm font-bold tracking-[3px] text-[var(--cyan)]">IRONSIGHT</h1>
               <p className="text-[8px] text-[var(--text-secondary)] tracking-[2px]">
-                OSINT COMMAND CENTER // UNCLASSIFIED
+                {t('header.tagline')}
               </p>
             </div>
           </div>
           <MetricsBar />
           <div className="flex items-center gap-4 text-[9px] text-[var(--text-secondary)]">
+            <LanguageToggle />
             <ConflictToggle />
-            <span>SESSION {formatUptime(uptime)}</span>
+            <PanelVisibilityMenu panelLabels={PANEL_LABELS} hidden={hidden} onToggle={togglePanel} />
+            <button
+              onClick={resetLayout}
+              className="text-[9px] tracking-[1px] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--cyan)] hover:border-[var(--cyan)] transition-colors"
+              title={t('header.resetLayoutTitle')}
+            >
+              {t('header.resetLayout')}
+            </button>
+            <span>{t('header.session')} {formatUptime(uptime)}</span>
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--green)] animate-pulse" />
-              LIVE
+              {t('header.live')}
             </span>
           </div>
         </div>
@@ -81,68 +101,39 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Main grid - 3 rows */}
-      <main className="flex-1 grid grid-cols-12 gap-1 p-1 overflow-hidden"
-        style={{ gridTemplateRows: '2fr 1.5fr 1.5fr' }}
-      >
-        {/* === ROW 1: Map center, News left, Alerts + Markets right === */}
-        <div className="col-span-3 min-h-0">
-          <NewsFeed />
-        </div>
-        <div className="col-span-4 min-h-0">
-          <ConflictMap key={conflictKey} className="h-full" />
-        </div>
-        <div className="col-span-2 min-h-0">
-          <AlertsPanel />
-        </div>
-        <div className="col-span-3 min-h-0 flex flex-col gap-1">
-          <div className="flex-1 min-h-0">
-            <TelegramPanel />
-          </div>
-        </div>
-
-        {/* === ROW 2: Markets, Strikes, Polymarket, Conflicts, Flights === */}
-        <div className="col-span-3 min-h-0">
-          <MarketsPanel />
-        </div>
-        <div className="col-span-3 min-h-0">
-          <StrikesPanel />
-        </div>
-        <div className="col-span-2 min-h-0">
-          <PolymarketPanel />
-        </div>
-        <div className="col-span-2 min-h-0">
-          <ConflictFeed />
-        </div>
-        <div className="col-span-2 min-h-0">
-          <FlightsPanel />
-        </div>
-
-        {/* === ROW 3: Regional Alerts, Naval, Crypto, Energy, Satellite === */}
-        <div className="col-span-3 min-h-0">
-          <RegionalAlertsPanel />
-        </div>
-        <div className="col-span-3 min-h-0">
-          <NavalPanel />
-        </div>
-        <div className="col-span-2 min-h-0">
-          <CryptoPanel />
-        </div>
-        <div className="col-span-2 min-h-0">
-          <OilPanel />
-        </div>
-        <div className="col-span-2 min-h-0">
-          <SatellitePanel />
-        </div>
-      </main>
+      {/* Main grid — drag panels by their header to reposition, drag the
+          bottom-right corner to resize. Layout is saved to this browser only
+          (localStorage); "Reset layout" restores the default for everyone. */}
+      <DashboardGrid
+        layout={layout}
+        onLayoutChange={onLayoutChange}
+        hidden={hidden}
+        onHidePanel={togglePanel}
+        panels={[
+          { id: 'news', node: <NewsFeed /> },
+          { id: 'map', node: <ConflictMap key={conflictKey} className="h-full" /> },
+          { id: 'alerts', node: <AlertsPanel /> },
+          { id: 'telegram', node: <TelegramPanel /> },
+          { id: 'markets', node: <MarketsPanel /> },
+          { id: 'strikes', node: <StrikesPanel /> },
+          { id: 'polymarket', node: <PolymarketPanel /> },
+          { id: 'conflictFeed', node: <ConflictFeed /> },
+          { id: 'flights', node: <FlightsPanel /> },
+          { id: 'regional', node: <RegionalAlertsPanel /> },
+          { id: 'naval', node: <NavalPanel /> },
+          { id: 'crypto', node: <CryptoPanel /> },
+          { id: 'oil', node: <OilPanel /> },
+          { id: 'satellite', node: <SatellitePanel /> },
+        ]}
+      />
 
       {/* Bottom status bar */}
       <footer className="border-t border-[var(--border-color)] bg-[var(--bg-secondary)] px-4 py-1 flex items-center justify-between text-[9px] text-[var(--text-secondary)] shrink-0">
-        <span>FEEDS: NEWS | GDELT | TELEGRAM | OPENSKY | OCHA | YAHOO FIN | {config.client.alertSystemName.toUpperCase()} | NASA FIRMS | ADSB.LOL</span>
+        <span>{t('footer.feeds', { alertSystem: config.client.alertSystemName.toUpperCase() })}</span>
         <div className="flex items-center gap-4">
-          <span>ALERTS: 5s | NEWS: 2m | MARKETS: 5m</span>
-          <span>ALL DATA: PUBLIC / OSINT</span>
-          <span>CLASSIFICATION: UNCLASSIFIED // FOUO</span>
+          <span>{t('footer.refreshRates')}</span>
+          <span>{t('footer.dataSource')}</span>
+          <span>{t('footer.classification')}</span>
         </div>
       </footer>
     </div>
