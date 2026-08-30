@@ -7,4 +7,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      # Airlines watched by /api/airline-deviations (ICAO codes or names,
+      # comma-separated). Unset = Emirates only.
+      - WATCHED_AIRLINES=UAE,ETD,QTR
     restart: unless-stopped
