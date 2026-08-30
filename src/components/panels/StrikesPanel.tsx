@@ -1,7 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useConflictFeed, timeAgo, useTick } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
+import { usePanelTTS } from '@/lib/tts';
+import SpeechToggle from '@/components/SpeechToggle';
 
 interface StrikeEvent {
   id: string;
@@ -35,6 +38,15 @@ export default function StrikesPanel() {
   const { data: strikes, loading } = useConflictFeed<StrikeEvent[]>('/api/strikes', 120000);
   const t = useT();
   useTick(15000);
+  const { enabled, toggle, speak } = usePanelTTS();
+
+  // Read newly reported strikes aloud when unmuted.
+  useEffect(() => {
+    if (!strikes || strikes.length === 0 || !enabled) return;
+    for (const strike of strikes.slice(0, 3)) {
+      speak(`${strike.category}. ${strike.title}`, strike.id);
+    }
+  }, [strikes, enabled, speak]);
 
   // Count by category
   const counts: Record<string, number> = {};
@@ -47,6 +59,7 @@ export default function StrikesPanel() {
       <div className="panel-header">
         <span className="status-dot" style={{ background: 'var(--red)', animation: 'pulse-dot 1s ease-in-out infinite' }} />
         {t('strikes.title')}
+        <SpeechToggle enabled={enabled} onToggle={toggle} />
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
           {strikes?.length || 0} {t('strikes.events')}
         </span>

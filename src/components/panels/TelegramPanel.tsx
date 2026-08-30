@@ -1,7 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useConflictFeed, timeAgo } from '@/lib/hooks';
 import { useT } from '@/lib/i18n';
+import { usePanelTTS } from '@/lib/tts';
+import SpeechToggle from '@/components/SpeechToggle';
 
 interface TelegramPost {
   channel: string;
@@ -22,12 +25,23 @@ interface TelegramData {
 export default function TelegramPanel() {
   const { data, loading, lastUpdated } = useConflictFeed<TelegramData>('/api/telegram', 60000);
   const t = useT();
+  const { enabled, toggle, speak } = usePanelTTS();
+
+  // Read newly arriving posts aloud when unmuted (clip long messages).
+  useEffect(() => {
+    if (!data?.posts || data.posts.length === 0 || !enabled) return;
+    for (const post of data.posts.slice(0, 3)) {
+      const text = post.text.length > 220 ? `${post.text.slice(0, 220)}...` : post.text;
+      speak(`${post.channelLabel}. ${text}`, `${post.channel}-${post.postId}`);
+    }
+  }, [data, enabled, speak]);
 
   return (
     <div className="panel h-full flex flex-col">
       <div className="panel-header">
         <span className="status-dot" style={{ background: 'var(--cyan)' }} />
         {t('telegram.title')}
+        <SpeechToggle enabled={enabled} onToggle={toggle} />
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
           {data?.posts.length || 0} {t('telegram.posts')} // {data?.channels.length || 0} {t('telegram.channels')}{lastUpdated ? ` // ${new Date(lastUpdated).toLocaleTimeString()}` : ''}
         </span>
