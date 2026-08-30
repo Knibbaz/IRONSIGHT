@@ -25,6 +25,17 @@ export interface LaunchSite {
   range: number; // km
 }
 
+export interface MilitaryBase {
+  name: string;
+  lat: number;
+  lon: number;
+  country: string;
+  operator: string;   // e.g. "US / CENTCOM"
+  branch: string;     // e.g. "USAF", "US Navy", "US Army"
+  personnel: number;  // approximate headcount from public reporting
+  note?: string;      // e.g. "5th Fleet HQ"
+}
+
 export interface BBox {
   latMin: number;
   latMax: number;
@@ -97,6 +108,8 @@ export interface ClientConfig {
   // country -> city-dot color; `default` used for non-belligerent countries
   cityColors: Record<string, string>;
   launchSites: LaunchSite[];
+  // foreign military bases to plot (approximate personnel from public sources)
+  bases: MilitaryBase[];
   // geocode table: lowercased key -> coordinates
   strikeLocations: Record<string, [number, number]>;
   // ordered [key, DisplayName] pairs for strike geocoding (specific places only)

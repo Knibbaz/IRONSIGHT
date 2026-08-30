@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useConflictFeed } from '@/lib/hooks';
 import { useConflict } from '@/lib/conflicts/context';
 import type { ColorMatchRule } from '@/lib/conflicts';
+import { fetchWikiImage } from '@/lib/wikiImage';
 
 let L: typeof import('leaflet') | null = null;
 
@@ -21,6 +22,7 @@ interface FlightData {
     speed: number;
     type: string;
     aircraftType: string;
+    description: string;
     registration: string;
     squawk: string;
     isMilitary: boolean;
@@ -124,6 +126,17 @@ function getFlightColor(origin: string, rules: ColorMatchRule[]): string {
   return '#ffaa00';
 }
 
+// Compact "how long ago" label for a timestamp.
+function relativeAge(dateStr: string): string {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  if (isNaN(ms)) return '';
+  const min = Math.round(ms / 60000);
+  if (min < 60) return `${Math.max(min, 1)}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 48) return `${hr}h ago`;
+  return `${Math.round(hr / 24)}d ago`;
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -155,6 +168,31 @@ function animateMarker(marker: L.Marker, targetLat: number, targetLon: number, d
     if (t < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
+}
+
+// Lazy-load a Wikipedia photo into a marker popup the first time it opens.
+// The popup HTML must contain a <div class="wiki-photo"> placeholder.
+function attachPhoto(marker: L.Marker, candidates: string[]) {
+  let url: string | null | undefined; // undefined = not fetched, null = no image
+  const render = () => {
+    if (!url) return;
+    const slot = marker.getPopup()?.getElement()?.querySelector('.wiki-photo') as HTMLElement | null;
+    if (!slot || slot.querySelector('img')) return;
+    const img = document.createElement('img');
+    img.src = url; // set via property — never interpolate a remote URL into HTML
+    img.alt = '';
+    img.loading = 'lazy';
+    img.style.cssText = 'width:100%;height:auto;max-height:150px;object-fit:cover;border-radius:3px;display:block;margin-bottom:5px;';
+    img.onerror = () => { slot.remove(); };
+    slot.appendChild(img);
+    marker.getPopup()?.update();
+  };
+  marker.on('popupopen', async () => {
+    if (url === undefined) {
+      url = await fetchWikiImage(candidates.filter(Boolean));
+    }
+    render();
+  });
 }
 
 // Draw an animated arc between two points (missile trajectory) — loops until cancelled
@@ -267,6 +305,7 @@ export default function ConflictMap({ className }: MapProps) {
   const alertLayerRef = useRef<L.LayerGroup | null>(null);
   const strikeLayerRef = useRef<L.LayerGroup | null>(null);
   const rangeLayerRef = useRef<L.LayerGroup | null>(null);
+  const baseLayerRef = useRef<L.LayerGroup | null>(null);
   const toolLayerRef = useRef<L.LayerGroup | null>(null);
   const droneLayerRef = useRef<L.LayerGroup | null>(null);
 
@@ -307,6 +346,7 @@ export default function ConflictMap({ className }: MapProps) {
   const [showNaval, setShowNaval] = useState(true);
   const [showCities, setShowCities] = useState(true);
   const [showStrikes, setShowStrikes] = useState(true);
+  const [showBases, setShowBases] = useState(false);
 
   useEffect(() => {
     import('leaflet').then(leaflet => { L = leaflet; setMounted(true); });
@@ -331,6 +371,7 @@ export default function ConflictMap({ className }: MapProps) {
     alertLayerRef.current = L.layerGroup().addTo(map);
     strikeLayerRef.current = L.layerGroup().addTo(map);
     rangeLayerRef.current = L.layerGroup().addTo(map);
+    baseLayerRef.current = L.layerGroup();
     toolLayerRef.current = L.layerGroup().addTo(map);
     droneLayerRef.current = L.layerGroup().addTo(map);
     measureLayerRef.current = L.layerGroup().addTo(map);
@@ -346,6 +387,7 @@ export default function ConflictMap({ className }: MapProps) {
       alertLayerRef.current = null;
       strikeLayerRef.current = null;
       rangeLayerRef.current = null;
+      baseLayerRef.current = null;
       toolLayerRef.current = null;
       droneLayerRef.current = null;
       measureLayerRef.current = null;
@@ -493,6 +535,13 @@ export default function ConflictMap({ className }: MapProps) {
   useEffect(() => {
     if (!cityMarkersRef.current.size) return;
 
+    // How far back the current news feed reaches — used to frame "no events".
+    const feedTimes = (conflicts || [])
+      .map(e => new Date(e.date).getTime())
+      .filter(t => !isNaN(t));
+    const feedOldest = feedTimes.length ? Math.min(...feedTimes) : null;
+    const feedSpan = feedOldest ? relativeAge(new Date(feedOldest).toISOString()).replace(' ago', '') : null;
+
     cfg.cities.forEach(city => {
       const marker = cityMarkersRef.current.get(city.name);
       if (!marker) return;
@@ -532,8 +581,13 @@ export default function ConflictMap({ className }: MapProps) {
       }
 
       if (recentStrikes.length > 0) {
+        const newest = recentStrikes
+          .map(s => new Date(s.date).getTime())
+          .filter(t => !isNaN(t))
+          .sort((a, b) => b - a)[0];
+        const latestLabel = newest ? ` · latest ${relativeAge(new Date(newest).toISOString())}` : '';
         html += `<div style="margin-top:6px;border-top:1px solid #ddd;padding-top:4px;">`;
-        html += `<strong style="color:#ff6600;font-size:10px;">RECENT EVENTS</strong><br/>`;
+        html += `<strong style="color:#ff6600;font-size:10px;">RECENT EVENTS${latestLabel}</strong><br/>`;
         recentStrikes.forEach(s => {
           const timeStr = new Date(s.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
           const snippet = `${s.description.substring(0, 80)}${s.description.length > 80 ? '...' : ''}`;
@@ -549,7 +603,7 @@ export default function ConflictMap({ className }: MapProps) {
       }
 
       if (recentStrikes.length === 0 && activeAlerts.length === 0) {
-        html += `<div style="margin-top:4px;color:#999;font-size:10px;">No recent events reported</div>`;
+        html += `<div style="margin-top:4px;color:#999;font-size:10px;">No mentions in the current news feed${feedSpan ? ` (spans last ${feedSpan})` : ''}</div>`;
       }
 
       html += `</div>`;
@@ -617,7 +671,8 @@ export default function ConflictMap({ className }: MapProps) {
 
       const existing = airMarkersRef.current.get(id);
       const popupContent = `
-        <div style="font-family:monospace;font-size:11px;color:#000;min-width:180px;">
+        <div style="font-family:monospace;font-size:11px;color:#000;min-width:180px;max-width:240px;">
+          <div class="wiki-photo"></div>
           <strong style="color:${color}">${f.callsign || f.icao24}</strong><br/>
           <strong>${f.type}</strong><br/>
           ${f.aircraftType ? `Platform: ${f.aircraftType}${f.registration ? ` (${f.registration})` : ''}<br/>` : ''}
@@ -647,6 +702,10 @@ export default function ConflictMap({ className }: MapProps) {
         });
         marker.bindPopup(popupContent);
         marker.bindTooltip(f.callsign || f.icao24, { direction: 'top', offset: [0, -10], className: 'aircraft-label' });
+        // Only the human-readable type resolves to a real article; a bare ICAO
+        // code ("P8", "C17") matches unrelated pages, so skip it rather than
+        // risk showing a wrong photo.
+        attachPhoto(marker, [f.description]);
 
         // Click to show trail, close to hide
         marker.on('click', () => showTrailForAircraft(id));
@@ -689,13 +748,19 @@ export default function ConflictMap({ className }: MapProps) {
           }),
         });
         marker.bindPopup(`
-          <div style="font-family:monospace;font-size:11px;color:#000;min-width:180px;">
+          <div style="font-family:monospace;font-size:11px;color:#000;min-width:180px;max-width:240px;">
+            <div class="wiki-photo"></div>
             <strong style="color:${color}">${ship.name}</strong><br/>
             ${ship.hull} &bull; ${ship.class}<br/>Type: ${ship.type}<br/>Navy: ${ship.navy}<br/>
             Status: ${ship.status}<br/>Region: ${ship.region}${ship.group ? `<br/>Group: ${ship.group}` : ''}
           </div>
         `);
         marker.bindTooltip(`<span style="color:${color}">${ship.name}</span>`, { direction: 'top', offset: [0, -8], className: 'naval-label' });
+        attachPhoto(marker, [
+          `${ship.name} (${ship.hull})`,
+          ship.name,
+          /various/i.test(ship.class) ? '' : `${ship.class} ${ship.type}`,
+        ]);
         navalLayerRef.current!.addLayer(marker);
         navalMarkersRef.current.set(id, marker);
       }
@@ -945,11 +1010,15 @@ export default function ConflictMap({ className }: MapProps) {
       const titleHtml = event.url
         ? `<a href="${event.url}" target="_blank" rel="noopener noreferrer" style="color:#000;text-decoration:underline;cursor:pointer;">${event.title}</a>`
         : event.title;
+      const unverifiedBadge = event.fromTelegram
+        ? `<span style="display:inline-block;margin-left:6px;padding:1px 4px;background:#fff3cd;border:1px solid #d39e00;border-radius:3px;color:#8a6d00;font-size:9px;font-weight:bold;vertical-align:middle;">UNVERIFIED</span>`
+        : '';
       const popupHtml = `
         <div style="font-family:monospace;font-size:11px;color:#000;min-width:220px;max-width:300px;">
-          <strong style="color:${typeColor};font-size:12px;">${event.type} — ${geo.place}</strong><br/>
+          <strong style="color:${typeColor};font-size:12px;">${event.type} — ${geo.place}</strong>${unverifiedBadge}<br/>
           <div style="margin:4px 0;line-height:1.4;">${titleHtml}</div>
           <em style="color:#666;font-size:9px;">${sourceTag}${event.source} • ${timeStr}</em>
+          ${event.fromTelegram ? `<div style="margin-top:3px;color:#8a6d00;font-size:9px;">Unconfirmed Telegram report — not independently verified</div>` : ''}
         </div>
       `;
 
@@ -968,6 +1037,40 @@ export default function ConflictMap({ className }: MapProps) {
 
     console.log(`[MAP] Plotted ${plotted.size} strike markers`);
   }, [conflicts, strikes, telegram]);
+
+  // === FOREIGN MILITARY BASES (static, drawn once) ===
+  const basesDrawnRef = useRef(false);
+  useEffect(() => {
+    if (!L || !baseLayerRef.current || basesDrawnRef.current || !cfg.bases?.length) return;
+    const fmt = new Intl.NumberFormat('en-US');
+    cfg.bases.forEach(base => {
+      const marker = L!.marker([base.lat, base.lon], {
+        icon: L!.divIcon({
+          className: 'base-marker',
+          html: `<div style="width:14px;height:14px;display:flex;align-items:center;justify-content:center;color:#4c8dff;font-size:12px;line-height:1;filter:drop-shadow(0 0 3px #4c8dff);">▣</div>`,
+          iconSize: [14, 14], iconAnchor: [7, 7],
+        }),
+      });
+      marker.bindTooltip(base.name, { direction: 'top', offset: [0, -8], className: 'base-label' });
+      marker.bindPopup(`
+        <div style="font-family:monospace;font-size:11px;color:#000;min-width:190px;max-width:250px;">
+          <strong style="color:#1e5fbf;font-size:12px;">${base.name}</strong><br/>
+          <span style="color:#666;">${base.country}</span><br/>
+          Operator: ${base.operator}<br/>
+          Branch: ${base.branch}<br/>
+          Personnel: <strong>&asymp; ${fmt.format(base.personnel)}</strong>${base.note ? `<br/>${base.note}` : ''}
+          <div style="margin-top:4px;color:#999;font-size:9px;">Approximate — public reporting (CRS/CFR/AP), fluctuates</div>
+        </div>
+      `);
+      baseLayerRef.current!.addLayer(marker);
+    });
+    basesDrawnRef.current = true;
+  }, [mounted]);
+
+  useEffect(() => {
+    if (!mapRef.current || !baseLayerRef.current) return;
+    showBases ? mapRef.current.addLayer(baseLayerRef.current) : mapRef.current.removeLayer(baseLayerRef.current);
+  }, [showBases]);
 
   // === MISSILE RANGE RINGS ===
   useEffect(() => {
@@ -1020,6 +1123,12 @@ export default function ConflictMap({ className }: MapProps) {
             style={{ color: showRangeRings ? '#ff3366' : 'var(--text-secondary)', borderColor: showRangeRings ? '#ff3366' : 'var(--border-color)', background: showRangeRings ? 'rgba(255,51,102,0.1)' : 'transparent' }}>
             ◎ RANGE
           </button>
+          {cfg.bases?.length > 0 && (
+            <button onClick={() => setShowBases(!showBases)} className="text-[8px] px-1.5 py-0.5 rounded border transition-colors"
+              style={{ color: showBases ? '#4c8dff' : 'var(--text-secondary)', borderColor: showBases ? '#4c8dff' : 'var(--border-color)', background: showBases ? 'rgba(76,141,255,0.1)' : 'transparent' }}>
+              ▣ BASES
+            </button>
+          )}
           <button onClick={() => setShowCities(!showCities)} className="text-[8px] px-1.5 py-0.5 rounded border transition-colors"
             style={{ color: showCities ? '#999' : 'var(--text-secondary)', borderColor: showCities ? '#666' : 'var(--border-color)', background: showCities ? 'rgba(150,150,150,0.1)' : 'transparent' }}>
             CITIES
@@ -1041,7 +1150,7 @@ export default function ConflictMap({ className }: MapProps) {
       </div>
 
       <style jsx global>{`
-        .city-label, .aircraft-label, .naval-label, .drone-label {
+        .city-label, .aircraft-label, .naval-label, .drone-label, .base-label {
           background: rgba(10, 14, 23, 0.9) !important;
           border: 1px solid rgba(30, 58, 95, 0.5) !important;
           color: #94a3b8 !important;
@@ -1051,13 +1160,14 @@ export default function ConflictMap({ className }: MapProps) {
           border-radius: 2px !important;
           box-shadow: none !important;
         }
-        .city-label::before, .aircraft-label::before, .naval-label::before, .drone-label::before {
+        .city-label::before, .aircraft-label::before, .naval-label::before, .drone-label::before, .base-label::before {
           border-right-color: rgba(30, 58, 95, 0.5) !important;
         }
         .aircraft-label { color: #00aaff !important; }
         .naval-label { color: #00d4ff !important; }
         .drone-label { color: #ff5588 !important; }
-        .mil-aircraft-marker, .naval-marker, .strike-marker, .measure-label, .drone-marker { background: none !important; border: none !important; }
+        .base-label { color: #4c8dff !important; }
+        .mil-aircraft-marker, .naval-marker, .strike-marker, .measure-label, .drone-marker, .base-marker { background: none !important; border: none !important; }
         .missile-arc { filter: drop-shadow(0 0 4px #ff3366); }
       `}</style>
     </div>

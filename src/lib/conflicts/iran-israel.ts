@@ -48,6 +48,22 @@ export const iranIsrael: ConflictConfig = {
       { name: 'Khorramabad Base', lat: 33.49, lon: 48.35, range: 2000 },
     ],
 
+    // Approximate personnel figures from public reporting (CRS, CFR, AP, Wikipedia).
+    // Troop levels fluctuate and are estimates, not official counts.
+    bases: [
+      { name: 'Al Udeid Air Base', lat: 25.117, lon: 51.315, country: 'Qatar', operator: 'US / CENTCOM', branch: 'USAF', personnel: 8000, note: 'CENTCOM forward HQ' },
+      { name: 'Camp Arifjan', lat: 28.885, lon: 48.150, country: 'Kuwait', operator: 'US / ARCENT', branch: 'US Army', personnel: 9000, note: 'Main Army hub in Kuwait' },
+      { name: 'Ali Al Salem Air Base', lat: 29.347, lon: 47.520, country: 'Kuwait', operator: 'US / CENTCOM', branch: 'USAF', personnel: 2000, note: 'Also "The Rock"' },
+      { name: 'Naval Support Activity Bahrain', lat: 26.211, lon: 50.610, country: 'Bahrain', operator: 'US / NAVCENT', branch: 'US Navy', personnel: 9000, note: '5th Fleet HQ' },
+      { name: 'Al Dhafra Air Base', lat: 24.248, lon: 54.548, country: 'UAE', operator: 'US / CENTCOM', branch: 'USAF', personnel: 3500 },
+      { name: 'Prince Sultan Air Base', lat: 24.063, lon: 47.580, country: 'Saudi Arabia', operator: 'US / CENTCOM', branch: 'USAF', personnel: 2700 },
+      { name: 'Ain al-Asad Air Base', lat: 33.785, lon: 42.441, country: 'Iraq', operator: 'US / OIR', branch: 'Joint', personnel: 2000 },
+      { name: 'Erbil Air Base', lat: 36.237, lon: 43.963, country: 'Iraq', operator: 'US / OIR', branch: 'Joint', personnel: 500 },
+      { name: 'Muwaffaq Salti Air Base', lat: 31.834, lon: 36.781, country: 'Jordan', operator: 'US / CENTCOM', branch: 'USAF', personnel: 3000, note: 'Azraq' },
+      { name: 'Al-Tanf Garrison', lat: 33.492, lon: 38.617, country: 'Syria', operator: 'US / OIR', branch: 'US Army', personnel: 900 },
+      { name: 'Camp Lemonnier', lat: 11.547, lon: 43.159, country: 'Djibouti', operator: 'US / AFRICOM', branch: 'Joint', personnel: 4000 },
+    ],
+
     strikeLocations: {
       // Iran
       'tehran': [35.69, 51.39], 'isfahan': [32.65, 51.67], 'natanz': [33.51, 51.73],

@@ -52,6 +52,8 @@ export const russiaUkraine: ConflictConfig = {
       { name: 'Rostov-on-Don (Southern MD)', lat: 47.24, lon: 39.70, range: 500 },
     ],
 
+    bases: [],
+
     strikeLocations: {
       // Ukraine
       'kyiv': [50.45, 30.52], 'kharkiv': [49.99, 36.23], 'odesa': [46.48, 30.72], 'odessa': [46.48, 30.72],
