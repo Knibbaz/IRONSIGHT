@@ -40,6 +40,7 @@ export default function Dashboard() {
   const t = useT();
   const { layout, onLayoutChange, reset: resetLayout, hidden, togglePanel } = useDashboardLayout();
   const [uptime, setUptime] = useState(0);
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'dev';
 
   useEffect(() => {
     const start = Date.now();
@@ -77,6 +78,12 @@ export default function Dashboard() {
                 {t('header.tagline')}
               </p>
             </div>
+            <span
+              className="text-[8px] text-[var(--text-secondary)] px-1 py-0.5 rounded border border-[var(--border-color)]"
+              title="Running build version"
+            >
+              v{appVersion}
+            </span>
           </div>
           <MetricsBar />
           <div className="flex items-center gap-4 text-[9px] text-[var(--text-secondary)]">

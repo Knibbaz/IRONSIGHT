@@ -12,6 +12,10 @@ RUN npm ci
 # 2) Build the standalone server bundle
 FROM node:22-alpine AS builder
 WORKDIR /app
+# The build version (defaults to "dev" for local builds) is inlined into the
+# client bundle so the dashboard can display which release is running.
+ARG VERSION=dev
+ENV NEXT_PUBLIC_APP_VERSION=$VERSION
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # The repo has no public/ directory (no static assets checked in yet) — make
