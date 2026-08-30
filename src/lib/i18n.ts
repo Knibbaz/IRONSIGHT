@@ -41,6 +41,8 @@ const en = {
 
   'regional.title': 'REGIONAL THREAT MONITOR',
   'regional.active': 'active',
+  'regional.showAll': 'Show all {count}',
+  'regional.showLess': 'Show less',
 
   'alerts.liveTracksInbound': 'LIVE TRACKS // {count} INBOUND',
   'alerts.incomingThreat': 'INCOMING THREAT DETECTED',
@@ -134,6 +136,8 @@ const nl: typeof en = {
 
   'regional.title': 'REGIONALE DREIGINGSMONITOR',
   'regional.active': 'actief',
+  'regional.showAll': 'Toon alle {count}',
+  'regional.showLess': 'Toon minder',
 
   'alerts.liveTracksInbound': 'LIVE TRACKS // {count} INKOMEND',
   'alerts.incomingThreat': 'INKOMENDE DREIGING GEDETECTEERD',

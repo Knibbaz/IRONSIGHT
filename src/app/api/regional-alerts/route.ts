@@ -88,7 +88,7 @@ export async function GET(req: Request) {
           const events: CountryEvent[] = [];
           const now = Date.now();
 
-          for (let j = 0; j < Math.min(items.length, 8); j++) {
+          for (let j = 0; j < Math.min(items.length, 15); j++) {
             const item = items[j];
             let title = getTextContent(item, 'title');
             const link = getTextContent(item, 'link');
@@ -127,6 +127,10 @@ export async function GET(req: Request) {
             },
             { concurrency: 6, timeoutMs: 3500 }
           );
+
+          // Google News orders by relevance, not recency — sort newest first so
+          // the panel never shows an older story above a newer one.
+          events.sort((a, b) => a.hoursAgo - b.hoursAgo);
 
           return { ...country, events };
         } catch {

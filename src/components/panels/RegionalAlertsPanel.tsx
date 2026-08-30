@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useConflictFeed, timeAgo, useTick } from '@/lib/hooks';
 import { useConflict } from '@/lib/conflicts/context';
 import { useT } from '@/lib/i18n';
+import { usePanelTTS } from '@/lib/tts';
+import SpeechToggle from '@/components/SpeechToggle';
 
 interface CountryEvent {
   title: string;
@@ -46,10 +48,33 @@ export default function RegionalAlertsPanel() {
   const COUNTRY_COLORS = config.client.countryColors;
   const { data, loading } = useConflictFeed<RegionalData>('/api/regional-alerts', 60000);
   useTick(15000);
+  const { enabled, toggle, speak } = usePanelTTS();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showAll, setShowAll] = useState<Set<string>>(new Set());
+
+  // Read the newest alert per country aloud when unmuted.
+  useEffect(() => {
+    if (!data?.alerts || !enabled) return;
+    for (const country of data.alerts.slice(0, 3)) {
+      const first = country.events[0];
+      if (first) speak(`${country.name}. ${first.title}`, `${country.name}-${first.url}`);
+    }
+  }, [data, enabled, speak]);
 
   const toggleCollapse = (country: string) => {
     setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(country)) {
+        next.delete(country);
+      } else {
+        next.add(country);
+      }
+      return next;
+    });
+  };
+
+  const toggleShowAll = (country: string) => {
+    setShowAll(prev => {
       const next = new Set(prev);
       if (next.has(country)) {
         next.delete(country);
@@ -80,6 +105,7 @@ export default function RegionalAlertsPanel() {
           }}
         />
         {t('regional.title')}
+        <SpeechToggle enabled={enabled} onToggle={toggle} />
         <span className="ml-auto text-[9px] text-[var(--text-secondary)] font-normal normal-case tracking-normal">
           {sorted.filter(a => a.level !== 'CLEAR').length} {t('regional.active')}
         </span>
@@ -140,31 +166,50 @@ export default function RegionalAlertsPanel() {
                 </div>
 
                 {/* Events - collapsible */}
-                {!isCollapsed && country.events.slice(0, 3).map((event, j) => (
-                  <a
-                    key={j}
-                    href={event.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block px-3 py-0.5 hover:bg-[rgba(0,212,255,0.05)] cursor-pointer"
-                    style={{ paddingLeft: '18px' }}
-                  >
-                    <div className="flex items-start gap-1.5">
-                      <span
-                        className="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
-                        style={{ background: SEVERITY_COLORS[event.severity] }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] leading-tight text-[var(--text-primary)] line-clamp-1">
-                          {event.title}
-                        </p>
-                        <span className="text-[9px] text-[var(--text-secondary)]">
-                          {event.source} • {timeAgo(event.time)}
-                        </span>
-                      </div>
-                    </div>
-                  </a>
-                ))}
+                {!isCollapsed && (() => {
+                  const expanded = showAll.has(country.name);
+                  const visible = expanded ? country.events : country.events.slice(0, 3);
+                  return (
+                    <>
+                      {visible.map((event, j) => (
+                        <a
+                          key={j}
+                          href={event.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block px-3 py-0.5 hover:bg-[rgba(0,212,255,0.05)] cursor-pointer"
+                          style={{ paddingLeft: '18px' }}
+                        >
+                          <div className="flex items-start gap-1.5">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
+                              style={{ background: SEVERITY_COLORS[event.severity] }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[10px] leading-tight text-[var(--text-primary)] line-clamp-1">
+                                {event.title}
+                              </p>
+                              <span className="text-[9px] text-[var(--text-secondary)]">
+                                {event.source} • {timeAgo(event.time)}
+                              </span>
+                            </div>
+                          </div>
+                        </a>
+                      ))}
+                      {country.events.length > 3 && (
+                        <button
+                          onClick={() => toggleShowAll(country.name)}
+                          className="block w-full text-left px-3 py-0.5 text-[9px] text-[var(--cyan)] hover:bg-[rgba(0,212,255,0.05)] cursor-pointer"
+                          style={{ paddingLeft: '18px' }}
+                        >
+                          {expanded
+                            ? t('regional.showLess')
+                            : t('regional.showAll', { count: country.events.length })}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             );
           })
