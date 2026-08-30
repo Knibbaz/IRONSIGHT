@@ -85,7 +85,7 @@ export default function CommercialFlightsPanel() {
               <div key={i} className="loading-shimmer h-8 rounded" />
             ))}
           </div>
-        ) : data?.deviations.length === 0 ? (
+        ) : !data || data.deviations.length === 0 ? (
           <div className="p-4 text-center text-[var(--text-secondary)] text-xs">
             {t('flights.noDeviations')}<br />
             <span className="text-[8px]">{t('flights.commercialHint')}</span>
