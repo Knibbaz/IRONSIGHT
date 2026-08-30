@@ -3,7 +3,7 @@ import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { getConflictFromRequest } from '@/lib/conflicts';
 import { translateBatch } from '@/lib/hebrew';
 import { isBlockedSource } from '@/lib/sourceFilter';
-import { reconcilePubDate } from '@/lib/articleDate';
+import { reconcilePubDate, deepReconcileDates } from '@/lib/articleDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,6 +114,19 @@ export async function GET(req: Request) {
               hoursAgo: Math.round(hoursAgo * 10) / 10,
             });
           }
+
+          // Verify "fresh" items against the article page — the feed date is a
+          // crawl timestamp for republished content, which would otherwise
+          // inflate a country's alert level.
+          await deepReconcileDates(
+            events,
+            e => ({ pubDate: e.time, url: e.url }),
+            (e, iso) => {
+              e.time = iso;
+              e.hoursAgo = Math.round(((now - new Date(iso).getTime()) / (1000 * 60 * 60)) * 10) / 10;
+            },
+            { concurrency: 6, timeoutMs: 3500 }
+          );
 
           return { ...country, events };
         } catch {

@@ -3,7 +3,7 @@ import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { getConflictFromRequest } from '@/lib/conflicts';
 import { translateBatch } from '@/lib/hebrew';
 import { isBlockedSource } from '@/lib/sourceFilter';
-import { reconcilePubDate } from '@/lib/articleDate';
+import { reconcilePubDate, deepReconcileDates } from '@/lib/articleDate';
 import type { ConflictEvent } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -77,6 +77,13 @@ export async function GET(req: Request) {
   for (const r of results) {
     if (r.status === 'fulfilled') allEvents.push(...r.value);
   }
+
+  await deepReconcileDates(
+    allEvents,
+    e => ({ pubDate: e.date, url: e.url || '' }),
+    (e, iso) => { e.date = iso; },
+    { concurrency: 8, timeoutMs: 4000 }
+  );
 
   // Sort newest first
   allEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

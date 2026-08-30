@@ -3,7 +3,7 @@ import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { getConflictFromRequest } from '@/lib/conflicts';
 import { translateBatch } from '@/lib/hebrew';
 import { isBlockedSource } from '@/lib/sourceFilter';
-import { reconcilePubDate } from '@/lib/articleDate';
+import { reconcilePubDate, deepReconcileDates } from '@/lib/articleDate';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,9 +77,17 @@ export async function GET(req: Request) {
     return true;
   });
 
-  deduped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const dateCandidates = deduped.slice(0, 60);
+  await deepReconcileDates(
+    dateCandidates,
+    s => ({ pubDate: s.date, url: s.url }),
+    (s, iso) => { s.date = iso; },
+    { concurrency: 8, timeoutMs: 4000 }
+  );
 
-  const final = deduped.slice(0, 25);
+  dateCandidates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const final = dateCandidates.slice(0, 25);
 
   const lang = new URL(req.url).searchParams.get('lang') || 'en';
   if (lang !== 'en' && final.length > 0) {

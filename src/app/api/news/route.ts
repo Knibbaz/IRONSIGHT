@@ -3,7 +3,7 @@ import { fetchWithTimeout, parseXML, getTextContent } from '@/lib/fetcher';
 import { isHebrew, translateFreeText } from '@/lib/hebrew';
 import { getConflictFromRequest } from '@/lib/conflicts';
 import { isBlockedSource } from '@/lib/sourceFilter';
-import { reconcilePubDate } from '@/lib/articleDate';
+import { reconcilePubDate, deepReconcileDates } from '@/lib/articleDate';
 import type { NewsItem } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -114,13 +114,28 @@ export async function GET(req: Request) {
 
   // Sort by closest to now first (handles RSS feeds with future timestamps)
   const now = Date.now();
-  deduped.sort((a, b) => {
-    const distA = Math.abs(now - new Date(a.pubDate || 0).getTime());
-    const distB = Math.abs(now - new Date(b.pubDate || 0).getTime());
-    return distA - distB;
-  });
+  const sortByRecency = (list: NewsItem[]) =>
+    list.sort((a, b) => {
+      const distA = Math.abs(now - new Date(a.pubDate || 0).getTime());
+      const distB = Math.abs(now - new Date(b.pubDate || 0).getTime());
+      return distA - distB;
+    });
 
-  const final = deduped.slice(0, 100);
+  sortByRecency(deduped);
+
+  // Confirm "fresh" items against the article's own metadata before trusting
+  // the feed timestamp — Google News hands back a crawl date for republished
+  // blog/aggregator content. Runs on a slightly wider slice so a corrected
+  // stale item can drop out and let a genuinely recent one take its place.
+  const candidates = deduped.slice(0, 140);
+  await deepReconcileDates(
+    candidates,
+    item => ({ pubDate: item.pubDate || '', url: item.link }),
+    (item, iso) => { item.pubDate = iso; },
+    { concurrency: 8, timeoutMs: 4000 }
+  );
+
+  const final = sortByRecency(candidates).slice(0, 100);
 
   // Translate titles into the requested UI language. In English mode, only
   // non-Latin (e.g. Hebrew) titles need translating; in any other language,
