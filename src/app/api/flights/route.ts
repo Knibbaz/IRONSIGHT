@@ -8,6 +8,15 @@ export const dynamic = 'force-dynamic';
 // Uses adsb.lol — free, community-run ADS-B aggregator
 // Has a military database (dbFlags bit 1) that properly identifies military aircraft
 // Much better than OpenSky for mil tracking
+//
+// NOTE: adsb.lol refuses requests without a descriptive User-Agent (HTTP 403
+// "User-Agent too generic"). Without this header the whole feed silently fails,
+// so military aircraft never show up.
+
+const ADSBL_HEADERS = {
+  'User-Agent': 'IronSight/1.0 (OSINT dashboard; https://github.com/Knibbaz/IRONSIGHT)',
+  'Accept': 'application/json',
+};
 
 export async function GET(req: Request) {
   const { server } = getConflictFromRequest(req);
@@ -17,11 +26,11 @@ export async function GET(req: Request) {
     const [milResult, regionResult] = await Promise.allSettled([
       fetchWithTimeout('https://api.adsb.lol/v2/mil', {
         timeout: 8000,
-        headers: { 'Accept': 'application/json' },
+        headers: ADSBL_HEADERS,
       }).then(r => r.ok ? r.json() : { ac: [] }),
       fetchWithTimeout(`https://api.adsb.lol/v2/lat/${center.lat}/lon/${center.lon}/dist/${center.dist}`, {
         timeout: 8000,
-        headers: { 'Accept': 'application/json' },
+        headers: ADSBL_HEADERS,
       }).then(r => r.ok ? r.json() : { ac: [] }),
     ]);
 
@@ -176,6 +185,8 @@ const MILITARY_AIRCRAFT_TYPES = new Set([
   'V22', 'H60', 'H47', 'H64', 'H53', 'UH1',
   // Russian / Soviet transports
   'IL76', 'IL78', 'AN12', 'AN22', 'AN26', 'AN32', 'AN70', 'AN72',
+  // Russian regional jets flown by the air force (An-148 / SSJ-100 transports)
+  'A148', 'A190', 'SSJ1',
 ]);
 
 function isMilitaryCallsign(callsign: string): boolean {
@@ -225,7 +236,7 @@ const TYPE_ROLES: Record<string, string> = {
   TU95: 'Bomber', TU22: 'Bomber', TU16: 'Bomber',
   IL76: 'Heavy Transport', AN12: 'Heavy Transport', AN22: 'Heavy Transport',
   AN26: 'Heavy Transport', AN32: 'Heavy Transport', AN70: 'Heavy Transport',
-  AN72: 'Heavy Transport',
+  AN72: 'Heavy Transport', A148: 'Transport (An-148)', A190: 'Transport (An-148)', SSJ1: 'Transport (SSJ-100)',
 };
 
 function classifyAircraft(callsign: string, acType: string, desc: string, altitude: number, speed: number): string {
