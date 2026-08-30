@@ -1,7 +1,10 @@
 services:
   ironsight:
+    # Pulled from Docker Hub (basabbink/ironsight:latest). For a local rebuild
+    # use `docker compose up --build` — build still works even with `image` set.
+    image: basabbink/ironsight:latest
     build: .
-    image: ironsight:latest
+    pull_policy: always
     container_name: ironsight
     ports:
       - "3000:3000"
