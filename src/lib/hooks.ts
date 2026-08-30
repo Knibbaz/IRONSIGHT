@@ -120,6 +120,62 @@ export function useReadItems() {
   return { isRead, markRead, readCount: read.size, clearRead };
 }
 
+const SAVED_KEY = 'ironsight:saved-items';
+const SAVED_CAP = 500;
+
+/**
+ * Bookmarks for feed items (news, Telegram, ...). Saves are keyed by the item's
+ * unique link/id and persisted in localStorage so they survive reloads. The
+ * saved-only filter lets the user quickly review everything they bookmarked.
+ */
+export function useSavedItems() {
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [savedOnly, setSavedOnly] = useState(false);
+
+  // Load persisted saves after mount to avoid hydration mismatch.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SAVED_KEY);
+      if (raw) setSaved(new Set(JSON.parse(raw)));
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }, []);
+
+  // Persist the set whenever it changes.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SAVED_KEY, JSON.stringify([...saved]));
+    } catch {
+      /* storage full/unavailable */
+    }
+  }, [saved]);
+
+  const toggleSave = useCallback((url?: string) => {
+    if (!url) return;
+    setSaved(prev => {
+      const next = new Set(prev);
+      if (next.has(url)) {
+        next.delete(url);
+      } else {
+        next.add(url);
+        if (next.size > SAVED_CAP) {
+          const arr = [...next];
+          next.clear();
+          for (const u of arr.slice(-SAVED_CAP)) next.add(u);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  const isSaved = useCallback((url?: string) => (url ? saved.has(url) : false), [saved]);
+
+  const toggleSavedOnly = useCallback(() => setSavedOnly(prev => !prev), []);
+
+  return { isSaved, toggleSave, savedCount: saved.size, savedOnly, toggleSavedOnly, clearSaved: () => setSaved(new Set()) };
+}
+
 export function timeAgo(date: string | Date): string {
   if (!date) return '';
   const now = new Date();
