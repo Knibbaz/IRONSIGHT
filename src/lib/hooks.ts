@@ -61,6 +61,65 @@ export function useTick(ms: number = 15000) {
   }, [ms]);
 }
 
+const READ_KEY = 'ironsight:read-items';
+const READ_CAP = 2000;
+
+/**
+ * Tracks which feed items the user has already opened. Read URLs are persisted
+ * in localStorage (keyed by link) so the state survives reloads. Unread items
+ * can be highlighted while read ones are dimmed.
+ */
+export function useReadItems() {
+  const [read, setRead] = useState<Set<string>>(new Set());
+
+  // Load persisted read items after mount to avoid hydration mismatch.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(READ_KEY);
+      if (raw) setRead(new Set(JSON.parse(raw)));
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }, []);
+
+  // Persist the set whenever it changes.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(READ_KEY, JSON.stringify([...read]));
+    } catch {
+      /* storage full/unavailable */
+    }
+  }, [read]);
+
+  const markRead = useCallback((url?: string) => {
+    if (!url) return;
+    setRead(prev => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      if (next.size > READ_CAP) {
+        const arr = [...next];
+        next.clear();
+        for (const u of arr.slice(-READ_CAP)) next.add(u);
+      }
+      return next;
+    });
+  }, []);
+
+  const isRead = useCallback((url?: string) => (url ? read.has(url) : false), [read]);
+
+  const clearRead = useCallback(() => {
+    setRead(new Set());
+    try {
+      window.localStorage.removeItem(READ_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  return { isRead, markRead, readCount: read.size, clearRead };
+}
+
 export function timeAgo(date: string | Date): string {
   if (!date) return '';
   const now = new Date();
