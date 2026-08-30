@@ -51,6 +51,32 @@ export default function RegionalAlertsPanel() {
   const { enabled, toggle, speak } = usePanelTTS();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAll, setShowAll] = useState<Set<string>>(new Set());
+  const [pinned, setPinned] = useState<Set<string>>(new Set());
+
+  // Pinned countries persist per browser so they survive reloads.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ironsight:pinned-countries');
+      if (raw) setPinned(new Set(JSON.parse(raw)));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem('ironsight:pinned-countries', JSON.stringify([...pinned]));
+    } catch {
+      /* ignore */
+    }
+  }, [pinned]);
+
+  const togglePin = (country: string) => {
+    setPinned(prev => {
+      const next = new Set(prev);
+      if (next.has(country)) next.delete(country); else next.add(country);
+      return next;
+    });
+  };
 
   // Read the newest alert per country aloud when unmuted.
   useEffect(() => {
@@ -85,8 +111,11 @@ export default function RegionalAlertsPanel() {
     });
   };
 
-  // Sort by most recent event first
+  // Sort pinned countries first, then by most recent event.
   const sorted = data?.alerts ? [...data.alerts].sort((a, b) => {
+    const aPinned = pinned.has(a.name) ? 0 : 1;
+    const bPinned = pinned.has(b.name) ? 0 : 1;
+    if (aPinned !== bPinned) return aPinned - bPinned;
     const aTime = a.events[0]?.hoursAgo ?? 999;
     const bTime = b.events[0]?.hoursAgo ?? 999;
     return aTime - bTime;
@@ -124,26 +153,34 @@ export default function RegionalAlertsPanel() {
             const countryColor = COUNTRY_COLORS[country.name] || '#888';
             const hasEvents = country.events.length > 0;
             const isCollapsed = collapsed.has(country.name);
+            const isPinned = pinned.has(country.name);
 
             return (
               <div
                 key={i}
                 className="border-b border-[var(--border-color)]"
               >
-                {/* Country header - clickable to collapse */}
+                {/* Country header - clickable to collapse, right-click to pin */}
                 <div
                   className="px-3 py-1 flex items-center justify-between cursor-pointer select-none hover:bg-[rgba(255,255,255,0.02)]"
                   onClick={() => toggleCollapse(country.name)}
-                  style={{ borderLeft: `3px solid ${countryColor}` }}
+                  onContextMenu={(e) => { e.preventDefault(); togglePin(country.name); }}
+                  title={isPinned ? 'Right-click to unpin' : 'Right-click to pin to top'}
+                  style={{ borderLeft: `3px solid ${countryColor}`, background: isPinned ? 'rgba(255,200,0,0.06)' : undefined }}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="text-[9px] text-[var(--text-secondary)]">
-                      {isCollapsed ? '▸' : '▾'}
+                      {isPinned ? '📌' : (isCollapsed ? '▸' : '▾')}
                     </span>
                     <span className="text-xs">{country.flag}</span>
-                    <span className="text-[11px] font-bold" style={{ color: countryColor }}>
+                    <span className="text-[11px] font-bold" style={{ color: isPinned ? 'var(--amber)' : countryColor }}>
                       {country.name}
                     </span>
+                    {isPinned && (
+                      <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ color: 'var(--amber)', border: '1px solid var(--amber)40', backgroundColor: 'var(--amber)12' }}>
+                        PINNED
+                      </span>
+                    )}
                     {hasEvents && (
                       <span className="text-[9px] text-[var(--text-secondary)]">
                         {country.events[0].hoursAgo < 1

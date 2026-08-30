@@ -112,13 +112,15 @@ export async function GET(req: Request) {
     return true;
   });
 
-  // Sort by closest to now first (handles RSS feeds with future timestamps)
+  // Sort newest first. A few feeds emit slightly-future timestamps (clock
+  // skew); those are clamped to "now" so a future-dated item can't jump above
+  // genuinely fresh news and older items never interleave above newer ones.
   const now = Date.now();
   const sortByRecency = (list: NewsItem[]) =>
     list.sort((a, b) => {
-      const distA = Math.abs(now - new Date(a.pubDate || 0).getTime());
-      const distB = Math.abs(now - new Date(b.pubDate || 0).getTime());
-      return distA - distB;
+      const ta = Math.min(new Date(a.pubDate || 0).getTime(), now);
+      const tb = Math.min(new Date(b.pubDate || 0).getTime(), now);
+      return tb - ta;
     });
 
   sortByRecency(deduped);

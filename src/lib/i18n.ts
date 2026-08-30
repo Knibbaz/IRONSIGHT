@@ -24,6 +24,8 @@ const en = {
 
   'news.title': 'LIVE INTEL FEED',
   'news.items': 'items',
+  'news.noSaved': 'No saved items yet',
+  'news.savedTitle': 'Show saved items ({count})',
 
   'telegram.title': 'TELEGRAM OSINT (UNVERIFIED)',
   'telegram.posts': 'posts',
@@ -77,6 +79,9 @@ const en = {
   'flights.deviations': 'deviations',
   'flights.noDeviations': 'No deviations detected',
   'flights.commercialHint': 'Tracking watched airlines for route anomalies',
+  'flights.showAllTracked': 'ALL TRACKED',
+  'flights.showDeviations': 'DEVIATIONS',
+  'flights.trackedTitle': 'Toggle between deviations and all tracked flights',
 
   'naval.title': 'NAVAL TRACKER',
   'naval.vessels': 'vessels // OSINT',
@@ -119,6 +124,8 @@ const nl: typeof en = {
 
   'news.title': 'LIVE NIEUWSFEED',
   'news.items': 'items',
+  'news.noSaved': 'Nog geen items opgeslagen',
+  'news.savedTitle': 'Toon opgeslagen items ({count})',
 
   'telegram.title': 'TELEGRAM OSINT (ONGEVERIFIEERD)',
   'telegram.posts': 'berichten',
@@ -172,6 +179,9 @@ const nl: typeof en = {
   'flights.deviations': 'afwijkingen',
   'flights.noDeviations': 'Geen afwijkingen gedetecteerd',
   'flights.commercialHint': 'Gevolgde luchtvaartmaatschappijen op route-afwijkingen',
+  'flights.showAllTracked': 'ALLE GEVOLGD',
+  'flights.showDeviations': 'AFWIJKINGEN',
+  'flights.trackedTitle': 'Wissel tussen afwijkingen en alle gevolgde vluchten',
 
   'naval.title': 'MARITIEME TRACKER',
   'naval.vessels': 'schepen // OSINT',
