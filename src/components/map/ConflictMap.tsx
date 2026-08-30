@@ -325,6 +325,8 @@ export default function ConflictMap({ className }: MapProps) {
   // Flight trail tracking: icao24 -> array of past positions
   const flightTrailsRef = useRef<Map<string, [number, number][]>>(new Map());
   const activeTrailRef = useRef<{ id: string; polyline: L.Polyline } | null>(null);
+  // Trail drawn from a commercial-flights focus event (no marker on this map)
+  const commercialTrailRef = useRef<L.Polyline | null>(null);
 
   // Distance measurement
   const [measureMode, setMeasureMode] = useState(false);
@@ -396,6 +398,7 @@ export default function ConflictMap({ className }: MapProps) {
       toolLayerRef.current = null;
       droneLayerRef.current = null;
       measureLayerRef.current = null;
+      commercialTrailRef.current = null;
       airMarkersRef.current.clear();
       navalMarkersRef.current.clear();
       droneMarkersRef.current.clear();
@@ -491,7 +494,9 @@ export default function ConflictMap({ className }: MapProps) {
   useEffect(() => {
     if (!L || !mapRef.current) return;
     const handleFocus = (e: Event) => {
-      const { id, lat, lon, type } = (e as CustomEvent).detail;
+      const { id, lat, lon, type, trail } = (e as CustomEvent).detail as {
+        id: string; lat: number; lon: number; type: string; trail?: [number, number][];
+      };
       const map = mapRef.current;
       if (!map || !L) return;
 
@@ -506,13 +511,33 @@ export default function ConflictMap({ className }: MapProps) {
       highlight.addTo(map);
       highlightRef.current = highlight;
 
+      // Draw the aircraft's flight trail (used by the commercial-flights panel,
+      // which knows the last positions but has no marker on this map).
+      if (type !== 'ship' && trail && trail.length >= 2 && toolLayerRef.current) {
+        // Remove an existing commercial trail before drawing a new one.
+        if (commercialTrailRef.current) {
+          try { toolLayerRef.current.removeLayer(commercialTrailRef.current); } catch {}
+          commercialTrailRef.current = null;
+        }
+        commercialTrailRef.current = L.polyline(trail, {
+          color: '#00ff88', weight: 2, opacity: 0.8, dashArray: '6, 4',
+        }).addTo(toolLayerRef.current);
+      } else if (commercialTrailRef.current && toolLayerRef.current) {
+        try { toolLayerRef.current.removeLayer(commercialTrailRef.current); } catch {}
+        commercialTrailRef.current = null;
+      }
+
       const markersMap = type === 'aircraft' ? airMarkersRef.current : navalMarkersRef.current;
       const marker = markersMap.get(id);
       if (marker) marker.openPopup();
 
       setTimeout(() => {
         if (highlightRef.current === highlight && map) { map.removeLayer(highlight); highlightRef.current = null; }
-      }, 8000);
+        if (commercialTrailRef.current && toolLayerRef.current) {
+          try { toolLayerRef.current.removeLayer(commercialTrailRef.current); } catch {}
+          commercialTrailRef.current = null;
+        }
+      }, 20000);
     };
 
     window.addEventListener('map-focus', handleFocus);
@@ -693,16 +718,16 @@ export default function ConflictMap({ className }: MapProps) {
         animateMarker(existing, f.lat, f.lon, 2000);
         existing.setIcon(L!.divIcon({
           className: 'mil-aircraft-marker',
-          html: `<div style="font-size:14px;transform:rotate(${f.heading}deg);filter:drop-shadow(0 0 4px ${color});color:${color};line-height:1;transition:transform 2s ease-out;">✈</div>`,
-          iconSize: [18, 18], iconAnchor: [9, 9],
+          html: `<div style="font-size:22px;transform:rotate(${f.heading}deg);filter:drop-shadow(0 0 4px ${color});color:${color};line-height:1;transition:transform 2s ease-out;">✈</div>`,
+          iconSize: [26, 26], iconAnchor: [13, 13],
         }));
         existing.setPopupContent(popupContent);
       } else {
         const marker = L!.marker([f.lat, f.lon], {
           icon: L!.divIcon({
             className: 'mil-aircraft-marker',
-            html: `<div style="font-size:14px;transform:rotate(${f.heading}deg);filter:drop-shadow(0 0 4px ${color});color:${color};line-height:1;transition:transform 2s ease-out;">✈</div>`,
-            iconSize: [18, 18], iconAnchor: [9, 9],
+            html: `<div style="font-size:22px;transform:rotate(${f.heading}deg);filter:drop-shadow(0 0 4px ${color});color:${color};line-height:1;transition:transform 2s ease-out;">✈</div>`,
+            iconSize: [26, 26], iconAnchor: [13, 13],
           }),
         });
         marker.bindPopup(popupContent);
@@ -748,8 +773,8 @@ export default function ConflictMap({ className }: MapProps) {
         const marker = L!.marker([ship.lat, ship.lon], {
           icon: L!.divIcon({
             className: 'naval-marker',
-            html: `<div style="font-size:${isSub ? '10px' : '13px'};filter:drop-shadow(0 0 4px ${color});color:${color};line-height:1;">${isSub ? '▼' : '⛴'}</div>`,
-            iconSize: [16, 16], iconAnchor: [8, 8],
+            html: `<div style="font-size:${isSub ? '14px' : '19px'};filter:drop-shadow(0 0 4px ${color});color:${color};line-height:1;">${isSub ? '▼' : '⛴'}</div>`,
+            iconSize: [22, 22], iconAnchor: [11, 11],
           }),
         });
         marker.bindPopup(`
@@ -987,6 +1012,29 @@ export default function ConflictMap({ className }: MapProps) {
       });
     }
 
+    // Track already-placed strike positions so markers never overlap: instead
+    // of a random jitter (which stacks up in a tight location like the Strait
+    // of Hormuz), search an expanding ring around the target until a spot at
+    // least MIN_DIST degrees from every existing marker is found.
+    const placedStrikes: [number, number][] = [];
+    const STRIKE_MIN_DIST = 0.12; // ~13 km at these latitudes
+    const STRIKE_RING_STEP = 0.06;
+    const STRIKE_MAX_RADIUS = 1.2;
+    const degDist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const findStrikeSpot = (base: [number, number]): [number, number] => {
+      if (placedStrikes.every(p => degDist(p, base) >= STRIKE_MIN_DIST)) return base;
+      for (let radius = STRIKE_RING_STEP; radius <= STRIKE_MAX_RADIUS; radius += STRIKE_RING_STEP) {
+        const points = 24;
+        for (let k = 0; k < points; k++) {
+          const ang = (k / points) * Math.PI * 2;
+          const cand: [number, number] = [base[0] + Math.cos(ang) * radius, base[1] + Math.sin(ang) * radius];
+          if (placedStrikes.every(p => degDist(p, cand) >= STRIKE_MIN_DIST)) return cand;
+        }
+      }
+      // Fall back to a ring far enough out even if it collides.
+      return [base[0] + STRIKE_MAX_RADIUS, base[1]];
+    };
+
     allStrikes.forEach(event => {
       const t = new Date(event.date).getTime();
       if (isNaN(t) || t < cutoff) return;
@@ -1004,10 +1052,8 @@ export default function ConflictMap({ className }: MapProps) {
       plotted.add(key);
       plottedLocations.add(geo.place.toLowerCase());
 
-      const pos: [number, number] = [
-        geo.coords[0] + (Math.random() - 0.5) * 0.15,
-        geo.coords[1] + (Math.random() - 0.5) * 0.15,
-      ];
+      const pos = findStrikeSpot(geo.coords);
+      placedStrikes.push(pos);
 
       const timeStr = new Date(event.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       const typeColor = event.type === 'MISSILE' ? '#ff0044' : event.type === 'DRONE' ? '#ff6600' : '#ff3300';
