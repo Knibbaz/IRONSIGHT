@@ -8,6 +8,7 @@ import OilPanel from '@/components/panels/OilPanel';
 import MarketsPanel from '@/components/panels/MarketsPanel';
 import ConflictFeed from '@/components/panels/ConflictFeed';
 import TelegramPanel from '@/components/panels/TelegramPanel';
+import CommercialFlightsPanel from '@/components/panels/CommercialFlightsPanel';
 import FlightsPanel from '@/components/panels/FlightsPanel';
 import StrikesPanel from '@/components/panels/StrikesPanel';
 import AlertsPanel from '@/components/panels/AlertsPanel';
@@ -119,6 +120,7 @@ export default function Dashboard() {
           { id: 'polymarket', node: <PolymarketPanel /> },
           { id: 'conflictFeed', node: <ConflictFeed /> },
           { id: 'flights', node: <FlightsPanel /> },
+          { id: 'commercial', node: <CommercialFlightsPanel /> },
           { id: 'regional', node: <RegionalAlertsPanel /> },
           { id: 'naval', node: <NavalPanel /> },
           { id: 'crypto', node: <CryptoPanel /> },

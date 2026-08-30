@@ -200,7 +200,33 @@ body {
 .value-down { color: var(--red); }
 .value-neutral { color: var(--text-secondary); }
 
-/* Loading shimmer */
+/* Wiki photo placeholder in popups */
+.wiki-photo {
+  min-height: 4px;
+  background: rgba(30, 58, 95, 0.2);
+  border-radius: 3px;
+  margin-bottom: 5px;
+  overflow: hidden;
+}
+
+.wiki-photo img {
+  display: block;
+}
+
+.wiki-photo-loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(30, 58, 95, 0.5);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 4px auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }

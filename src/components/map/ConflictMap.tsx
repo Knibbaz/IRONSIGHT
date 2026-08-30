@@ -173,17 +173,22 @@ function animateMarker(marker: L.Marker, targetLat: number, targetLon: number, d
 // Lazy-load a Wikipedia photo into a marker popup the first time it opens.
 // The popup HTML must contain a <div class="wiki-photo"> placeholder.
 function attachPhoto(marker: L.Marker, candidates: string[]) {
-  let url: string | null | undefined; // undefined = not fetched, null = no image
+  let url: string | null | undefined;
   const render = () => {
     if (!url) return;
     const slot = marker.getPopup()?.getElement()?.querySelector('.wiki-photo') as HTMLElement | null;
     if (!slot || slot.querySelector('img')) return;
+    // Show loading spinner
+    const spinner = document.createElement('span');
+    spinner.className = 'wiki-photo-loading';
+    slot.appendChild(spinner);
     const img = document.createElement('img');
-    img.src = url; // set via property — never interpolate a remote URL into HTML
+    img.src = url;
     img.alt = '';
     img.loading = 'lazy';
-    img.style.cssText = 'width:100%;height:auto;max-height:150px;object-fit:cover;border-radius:3px;display:block;margin-bottom:5px;';
-    img.onerror = () => { slot.remove(); };
+    img.style.cssText = 'width:100%;height:auto;max-height:150px;object-fit:cover;border-radius:3px;display:block;';
+    img.onerror = () => { img.remove(); spinner.remove(); };
+    img.onload = () => { spinner.remove(); };
     slot.appendChild(img);
     marker.getPopup()?.update();
   };

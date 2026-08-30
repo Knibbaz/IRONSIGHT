@@ -68,6 +68,14 @@ const en = {
   'flights.empty': 'No military aircraft detected on ADS-B',
   'flights.emptyHint': '(many mil flights disable transponders)',
 
+  'flights.commercial': 'COMMERCIAL FLIGHTS',
+  'flights.commercialStats': '{tracked} tracked // {deviating} deviating',
+  'flights.commercialOfTotal': '{normal} normal / {total} total tracked',
+  'flights.deviation': 'deviation',
+  'flights.deviations': 'deviations',
+  'flights.noDeviations': 'No deviations detected',
+  'flights.commercialHint': 'Tracking watched airlines for route anomalies',
+
   'naval.title': 'NAVAL TRACKER',
   'naval.vessels': 'vessels // OSINT',
 
@@ -152,6 +160,14 @@ const nl: typeof en = {
   'flights.milOfTotal': '{mil} mil / {total} totaal // adsb.lol',
   'flights.empty': 'Geen militaire vliegtuigen gedetecteerd op ADS-B',
   'flights.emptyHint': '(veel militaire vluchten schakelen transponders uit)',
+
+  'flights.commercial': 'COMMERCIËLE VLICHTEN',
+  'flights.commercialStats': '{tracked} gevolgd // {deviating} afwijkend',
+  'flights.commercialOfTotal': '{normal} normaal / {total} totaal gevolgd',
+  'flights.deviation': 'afwijking',
+  'flights.deviations': 'afwijkingen',
+  'flights.noDeviations': 'Geen afwijkingen gedetecteerd',
+  'flights.commercialHint': 'Gevolgde luchtvaartmaatschappijen op route-afwijkingen',
 
   'naval.title': 'MARITIEME TRACKER',
   'naval.vessels': 'schepen // OSINT',

@@ -23,9 +23,10 @@ export const DEFAULT_LAYOUT: Layout[] = [
   { i: 'flights', x: 10, y: 16, w: 2, h: 12, minW: 2, minH: 6 },
   { i: 'regional', x: 0, y: 28, w: 3, h: 12, minW: 2, minH: 6 },
   { i: 'naval', x: 3, y: 28, w: 3, h: 12, minW: 2, minH: 6 },
-  { i: 'crypto', x: 6, y: 28, w: 2, h: 12, minW: 2, minH: 6 },
-  { i: 'oil', x: 8, y: 28, w: 2, h: 12, minW: 2, minH: 6 },
-  { i: 'satellite', x: 10, y: 28, w: 2, h: 12, minW: 2, minH: 6 },
+  { i: 'commercial', x: 6, y: 28, w: 3, h: 12, minW: 2, minH: 6 },
+  { i: 'crypto', x: 9, y: 28, w: 3, h: 12, minW: 2, minH: 6 },
+  { i: 'oil', x: 0, y: 40, w: 3, h: 12, minW: 2, minH: 6 },
+  { i: 'satellite', x: 3, y: 40, w: 3, h: 12, minW: 2, minH: 6 },
 ];
 
 function isValidLayout(parsed: unknown): parsed is Layout[] {
@@ -46,6 +47,7 @@ export const PANEL_LABELS: { id: string; label: string }[] = [
   { id: 'polymarket', label: 'Prediction Markets' },
   { id: 'conflictFeed', label: 'Conflict Monitor' },
   { id: 'flights', label: 'Mil Airspace' },
+  { id: 'commercial', label: 'Commercial Flights' },
   { id: 'regional', label: 'Regional Threat Monitor' },
   { id: 'naval', label: 'Naval Tracker' },
   { id: 'crypto', label: 'Crypto Markets' },
