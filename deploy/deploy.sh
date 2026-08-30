@@ -22,13 +22,19 @@ IMAGE=basabbink/ironsight:latest
 # Version that is currently running (empty on first deploy).
 running_version=$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$SERVICE" 2>/dev/null || echo "")
 
+# Image digest currently running, and the freshly pulled one. Comparing
+# digests is the authoritative "did the image change" check — the version
+# label is only for display and may be absent on hand-built images.
+running_digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$SERVICE" 2>/dev/null || echo "")
+
 # Pull the newest latest image.
 docker compose pull -q
 
-# Version label on the freshly pulled image.
+new_digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null || echo "")
 new_version=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$IMAGE" 2>/dev/null || echo "unknown")
+[ -z "$new_version" ] && new_version="unknown"
 
-if [ "$running_version" = "$new_version" ] && docker ps --format '{{.Names}}' | grep -qx "$SERVICE"; then
+if [ -n "$running_digest" ] && [ "$running_digest" = "$new_digest" ] && docker ps --format '{{.Names}}' | grep -qx "$SERVICE"; then
   echo "$(date -u +%FT%TZ) no change (v${new_version}), skipping"
   exit 0
 fi
