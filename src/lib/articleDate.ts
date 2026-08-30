@@ -71,43 +71,109 @@ export function reconcilePubDate(pubDate: string, url: string): string {
 // *backwards* (an old story wearing a fresh crawl timestamp), never forwards.
 
 const META_DATE_PATTERNS: RegExp[] = [
-  /<meta[^>]+(?:property|name)=["'](?:article:published_time|og:published_time|publish-date|publishdate|pubdate|date|dc\.date\.issued|dcterms\.date|parsely-pub-date|sailthru\.date)["'][^>]+content=["']([^"']+)["']/i,
-  /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:article:published_time|og:published_time|publish-date|publishdate|pubdate|date|dc\.date\.issued|dcterms\.date|parsely-pub-date|sailthru\.date)["']/i,
+  /<meta[^>]+(?:property|name)=["'](?:article:published_time|og:article:published_time|og:published_time|publish-date|publishdate|pubdate|date|datepublished|dc\.date\.issued|dcterms\.date|dcterms\.created|parsely-pub-date|sailthru\.date)["'][^>]+content=["']([^"']+)["']/i,
+  /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:article:published_time|og:article:published_time|og:published_time|publish-date|publishdate|pubdate|date|datepublished|dc\.date\.issued|dcterms\.date|dcterms\.created|parsely-pub-date|sailthru\.date)["']/i,
   /<meta[^>]+itemprop=["']datePublished["'][^>]+content=["']([^"']+)["']/i,
-  /"datePublished"\s*:\s*"([^"]+)"/i,
   /<time[^>]+(?:datetime|pubdate)=["']([^"']+)["']/i,
+  /<article[^>]+data-date=["']([^"']+)["']/i,
 ];
 
+const JSON_LD_RE = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+const JSON_DATE_KEYS = ['datePublished', 'uploadDate', 'publishDate', 'dateCreated', 'pubDate'];
+
+/** Recursively walk parsed JSON-LD looking for a publish date. */
+function findDateInJson(node: unknown): string | null {
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findDateInJson(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (node && typeof node === 'object') {
+    const obj = node as Record<string, unknown>;
+    for (const key of JSON_DATE_KEYS) {
+      const v = obj[key];
+      if (typeof v === 'string' && v.trim() && !isNaN(new Date(v.trim()).getTime())) return v.trim();
+    }
+    for (const v of Object.values(obj)) {
+      const found = findDateInJson(v);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function parseJsonLdDate(html: string): string | null {
+  const blocks = html.match(JSON_LD_RE) || [];
+  for (const block of blocks) {
+    const raw = block.replace(/^<script[^>]*>/i, '').replace(/<\/script>$/i, '');
+    try {
+      const found = findDateInJson(JSON.parse(raw));
+      if (found) return found;
+    } catch {
+      /* malformed JSON-LD — try the next block */
+    }
+  }
+  return null;
+}
+
+function isValidPublishDate(d: Date): boolean {
+  if (isNaN(d.getTime())) return false;
+  const year = d.getUTCFullYear();
+  if (year < 2015 || d.getTime() > Date.now() + 2 * 24 * 60 * 60 * 1000) return false;
+  return true;
+}
+
 export function parsePublishDateFromHtml(html: string): string | null {
+  // JSON-LD is the most reliable signal; try it first.
+  const jsonLd = parseJsonLdDate(html);
+  if (jsonLd) {
+    const d = new Date(jsonLd);
+    if (isValidPublishDate(d)) return d.toISOString();
+  }
+
   for (const re of META_DATE_PATTERNS) {
     const m = html.match(re);
     if (!m) continue;
     const d = new Date(m[1].trim());
-    if (isNaN(d.getTime())) continue;
-    const year = d.getUTCFullYear();
-    if (year < 2015 || d.getTime() > Date.now() + 2 * 24 * 60 * 60 * 1000) continue;
+    if (!isValidPublishDate(d)) continue;
     return d.toISOString();
   }
   return null;
 }
 
-async function fetchArticlePublishDate(url: string, timeoutMs: number): Promise<string | null> {
+/**
+ * Best-effort fetch of the article page. Returns the parsed publish date (if
+ * any) plus the final URL after redirects — some publishers bounce short-links
+ * to a canonical /YYYY/MM/DD/ permalink, which is a fallback ground truth even
+ * when the page carries no machine-readable date.
+ */
+async function fetchArticlePublishDate(
+  url: string,
+  timeoutMs: number
+): Promise<{ real: string | null; finalUrl: string | null }> {
   try {
     const res = await fetchWithTimeout(url, {
       timeout: timeoutMs,
       redirect: 'follow',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; IronSight/1.0; +osint-dashboard)',
-        'Accept': 'text/html,application/xhtml+xml,*/*',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        // Google's consent cookie so short-links (news.google.com/...) don't
+        // bounce to a consent wall before reaching the publisher.
+        'Cookie': 'SOCS=CAI',
       },
     });
-    if (!res.ok) return null;
+    const finalUrl = res.url || null;
+    if (!res.ok) return { real: null, finalUrl };
     const ct = res.headers.get('content-type') || '';
-    if (ct && !/html|xml/i.test(ct)) return null;
+    if (ct && !/html|xml/i.test(ct)) return { real: null, finalUrl };
     const html = (await res.text()).slice(0, 250_000);
-    return parsePublishDateFromHtml(html);
+    return { real: parsePublishDateFromHtml(html), finalUrl };
   } catch {
-    return null;
+    return { real: null, finalUrl: null };
   }
 }
 
@@ -151,9 +217,20 @@ export async function deepReconcileDates<T>(
     while (cursor < needsFetch.length) {
       const item = needsFetch[cursor++];
       const { pubDate, url } = get(item);
-      const real = await fetchArticlePublishDate(url, timeoutMs);
-      if (!real) continue;
+      const { real, finalUrl } = await fetchArticlePublishDate(url, timeoutMs);
       const feedTime = new Date(pubDate).getTime();
+
+      // Even without machine-readable metadata, the post-redirect URL may be a
+      // canonical /YYYY/MM/DD/ permalink — use that to correct stale dates.
+      if (!real && finalUrl) {
+        const urlDate = extractDateFromUrl(finalUrl);
+        if (urlDate && !isNaN(feedTime) && feedTime - urlDate.getTime() > STALE_THRESHOLD_MS) {
+          set(item, urlDate.toISOString());
+          continue;
+        }
+      }
+
+      if (!real) continue;
       const realTime = new Date(real).getTime();
       if (!isNaN(feedTime) && feedTime - realTime > STALE_THRESHOLD_MS) {
         set(item, real);
