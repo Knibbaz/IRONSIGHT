@@ -58,6 +58,27 @@ interface Deviation {
   updated: string;
 }
 
+// Every watched-airline flight currently seen in the theater, whether or not
+// it is deviating. Lets the panel show the full monitored set, not just alarms.
+interface TrackedFlight {
+  airline: string;
+  callsign: string;
+  hex: string;
+  registration: string;
+  aircraftType: string;
+  lat: number;
+  lon: number;
+  altitude: number;
+  heading: number;
+  speed: number;
+  deviating: boolean;
+  severity?: 'critical' | 'high' | 'medium';
+  reasons: string[];
+  trail: [number, number][];
+  firstSeen: string;
+  updated: string;
+}
+
 const HISTORY = new Map<string, Sample[]>();
 const MIN_SAMPLE_GAP_MS = 20_000;   // don't record denser than this per aircraft
 const HISTORY_TTL_MS = 60 * 60_000; // drop aircraft not seen for an hour
@@ -187,6 +208,7 @@ export async function GET(req: Request) {
     pruneStale(nowMs);
 
     const tracked: Deviation[] = [];
+    const trackedList: TrackedFlight[] = [];
     const seenHex = new Set<string>();
 
     for (const a of ac) {
@@ -218,10 +240,29 @@ export async function GET(req: Request) {
       }
 
       const verdict = analyze(HISTORY.get(hex) ?? [sample]);
-      if (!verdict) continue;
-
       const series = HISTORY.get(hex) ?? [sample];
-      tracked.push({
+
+      if (verdict) {
+        tracked.push({
+          airline: airline.name,
+          callsign: (a.flight || '').trim(),
+          hex,
+          registration: a.r || '',
+          aircraftType: a.t || '',
+          lat: a.lat,
+          lon: a.lon,
+          altitude: sample.alt,
+          heading: Math.round(sample.trk),
+          speed: sample.gs,
+          severity: verdict.severity,
+          reasons: verdict.reasons,
+          trail: series.slice(-40).map((s) => [s.lat, s.lon] as [number, number]),
+          firstSeen: new Date(series[0].t).toISOString(),
+          updated: new Date(nowMs).toISOString(),
+        });
+      }
+
+      trackedList.push({
         airline: airline.name,
         callsign: (a.flight || '').trim(),
         hex,
@@ -232,8 +273,9 @@ export async function GET(req: Request) {
         altitude: sample.alt,
         heading: Math.round(sample.trk),
         speed: sample.gs,
-        severity: verdict.severity,
-        reasons: verdict.reasons,
+        deviating: !!verdict,
+        severity: verdict?.severity,
+        reasons: verdict?.reasons ?? [],
         trail: series.slice(-40).map((s) => [s.lat, s.lon] as [number, number]),
         firstSeen: new Date(series[0].t).toISOString(),
         updated: new Date(nowMs).toISOString(),
@@ -242,6 +284,9 @@ export async function GET(req: Request) {
 
     const rank = { critical: 3, high: 2, medium: 1 };
     tracked.sort((x, y) => rank[y.severity] - rank[x.severity]);
+    trackedList.sort(
+      (x, y) => Number(y.deviating) - Number(x.deviating) || (x.callsign < y.callsign ? -1 : 1)
+    );
 
     return NextResponse.json(
       {
@@ -249,6 +294,7 @@ export async function GET(req: Request) {
         trackedFlights: seenHex.size,
         deviationCount: tracked.length,
         deviations: tracked,
+        tracked: trackedList,
         source: 'adsb.lol',
         updated: new Date(nowMs).toISOString(),
       },
@@ -262,6 +308,7 @@ export async function GET(req: Request) {
         trackedFlights: 0,
         deviationCount: 0,
         deviations: [],
+        tracked: [],
         source: 'adsb.lol',
         error: 'fetch failed',
         updated: new Date().toISOString(),
