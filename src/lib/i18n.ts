@@ -14,6 +14,9 @@ const en = {
   'header.resetLayoutTitle': 'Restore the default panel positions and sizes (only affects this browser)',
   'header.panels': 'PANELS',
   'header.panelsTitle': 'Show/hide panels',
+  'header.editLayout': 'EDIT LAYOUT',
+  'header.editLayoutOn': 'DONE',
+  'header.editLayoutTitle': 'Lock/unlock the grid — drag panels by their header to rearrange, drag a corner to resize',
   'clock.loading': 'Loading clocks...',
   'clock.zulu': 'ZULU',
 
@@ -114,6 +117,9 @@ const nl: typeof en = {
   'header.resetLayoutTitle': 'Herstel de standaard paneelposities en -groottes (geldt alleen voor deze browser)',
   'header.panels': 'PANELEN',
   'header.panelsTitle': 'Panelen tonen/verbergen',
+  'header.editLayout': 'INDELING BEWERKEN',
+  'header.editLayoutOn': 'KLAAR',
+  'header.editLayoutTitle': 'Indeling vergrendelen/ontgrendelen — versleep panelen aan hun kop om te herschikken, sleep een hoek om te vergroten',
   'clock.loading': 'Klokken laden...',
   'clock.zulu': 'ZULU',
 

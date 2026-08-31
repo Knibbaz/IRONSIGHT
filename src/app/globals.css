@@ -94,14 +94,23 @@ body {
 
 /* Draggable / resizable dashboard grid (react-grid-layout) */
 .panel-header {
-  cursor: grab;
   /* Reserve a gutter on the right so the floating hide ("✕") button never
      overlaps a panel's own right-aligned header content (counts, timestamps). */
   padding-right: 26px;
 }
 
-.panel-header:active {
+/* Grab affordance only while the layout is unlocked ("EDIT LAYOUT"). */
+.dash-editable .panel-header {
+  cursor: grab;
+}
+
+.dash-editable .panel-header:active {
   cursor: grabbing;
+}
+
+.dash-editable .panel {
+  outline: 1px dashed var(--border-glow);
+  outline-offset: -1px;
 }
 
 .react-grid-item.react-grid-placeholder {

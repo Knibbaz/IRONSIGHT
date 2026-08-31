@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import GridLayout, { WidthProvider, type Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { COLS, ROW_UNITS, PANEL_LABELS } from '@/lib/layout';
+import { COLS, ROW_UNITS, MOBILE_ROW_HEIGHT, PANEL_LABELS } from '@/lib/layout';
 
 const ReactGridLayout = WidthProvider(GridLayout);
 
@@ -17,9 +17,13 @@ interface Props {
   onLayoutChange: (next: Layout[]) => void;
   hidden: Set<string>;
   onHidePanel: (id: string) => void;
+  /** Stacked single-column layout, no shrink-to-fit. */
+  isMobile: boolean;
+  /** When off, panels are fixed — no accidental drags while scrolling. */
+  editMode: boolean;
 }
 
-export default function DashboardGrid({ panels, layout, onLayoutChange, hidden, onHidePanel }: Props) {
+export default function DashboardGrid({ panels, layout, onLayoutChange, hidden, onHidePanel, isMobile, editMode }: Props) {
   const containerRef = useRef<HTMLElement>(null);
   const [rowHeight, setRowHeight] = useState(16);
   const [fullscreenId, setFullscreenId] = useState<string | null>(null);
@@ -42,6 +46,11 @@ export default function DashboardGrid({ panels, layout, onLayoutChange, hidden, 
   // updates back into the full layout — otherwise hidden panels would lose
   // their saved position/size the next time a visible panel is moved.
   const handleLayoutChange = (next: Layout[]) => {
+    // On mobile the parent derives a fresh order from `next` directly.
+    if (isMobile) {
+      onLayoutChange(next);
+      return;
+    }
     const merged = layout.map((item) => {
       const updated = next.find((n) => n.i === item.i);
       return updated ? { ...item, ...updated } : item;
@@ -52,6 +61,11 @@ export default function DashboardGrid({ panels, layout, onLayoutChange, hidden, 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
+    if (isMobile) {
+      setRowHeight(MOBILE_ROW_HEIGHT);
+      return;
+    }
 
     const update = () => {
       const h = el.clientHeight;
@@ -64,20 +78,25 @@ export default function DashboardGrid({ panels, layout, onLayoutChange, hidden, 
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [isMobile]);
 
   return (
-    <main ref={containerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-1">
+    <main
+      ref={containerRef}
+      className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-1 ${editMode ? 'dash-editable' : ''}`}
+    >
       <ReactGridLayout
         layout={visibleLayout}
         onLayoutChange={handleLayoutChange}
-        cols={COLS}
+        cols={isMobile ? 1 : COLS}
         rowHeight={rowHeight}
         margin={[MARGIN, MARGIN]}
         containerPadding={[0, 0]}
         draggableHandle=".panel-header"
         draggableCancel="button, a, input"
-        resizeHandles={['se']}
+        resizeHandles={isMobile ? [] : ['se']}
+        isDraggable={editMode}
+        isResizable={editMode && !isMobile}
         compactType="vertical"
         isBounded
         useCSSTransforms
@@ -97,20 +116,22 @@ export default function DashboardGrid({ panels, layout, onLayoutChange, hidden, 
               <>
                 <button
                   onClick={(e) => { e.stopPropagation(); setFullscreenId(p.id); }}
-                  className="absolute top-0 right-6 z-20 flex items-center text-[12px] leading-none text-[var(--text-secondary)] hover:text-[var(--cyan)] transition-colors"
+                  className={`absolute top-0 ${editMode ? 'right-6' : 'right-1'} z-20 flex items-center text-[12px] leading-none text-[var(--text-secondary)] hover:text-[var(--cyan)] transition-colors`}
                   style={{ height: HEADER_HEIGHT }}
                   title="Fullscreen"
                 >
                   ⛶
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onHidePanel(p.id); }}
-                  className="absolute top-0 right-1 z-20 flex items-center text-[13px] leading-none text-[var(--text-secondary)] hover:text-[var(--red)] transition-colors"
-                  style={{ height: HEADER_HEIGHT }}
-                  title="Hide panel"
-                >
-                  ✕
-                </button>
+                {editMode && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onHidePanel(p.id); }}
+                    className="absolute top-0 right-1 z-20 flex items-center text-[13px] leading-none text-[var(--text-secondary)] hover:text-[var(--red)] transition-colors"
+                    style={{ height: HEADER_HEIGHT }}
+                    title="Hide panel"
+                  >
+                    ✕
+                  </button>
+                )}
               </>
             )}
           </div>

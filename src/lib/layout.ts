@@ -4,11 +4,19 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Layout } from 'react-grid-layout';
 
 const STORAGE_KEY = 'ironsight-dashboard-layout-v1';
+const MOBILE_ORDER_KEY = 'ironsight-dashboard-mobile-order-v1';
 
 // Vertical resolution of the grid — fine enough that "make it bigger" via the
 // resize handle feels smooth, while still lining up with the 3 visual rows.
 export const ROW_UNITS = 40;
 export const COLS = 12;
+
+// Below this width the grid collapses to a single scrollable column.
+export const MOBILE_BREAKPOINT = 768;
+// On phones the grid no longer tries to fit one screen — each panel gets a
+// fixed height and the page scrolls.
+export const MOBILE_ROW_HEIGHT = 20; // px
+export const MOBILE_PANEL_H = 16; // grid units per stacked panel (~320px)
 
 // Mirrors the original fixed 3-row layout (2fr / 1.5fr / 1.5fr => 16/12/12 units).
 export const DEFAULT_LAYOUT: Layout[] = [
@@ -34,6 +42,50 @@ function isValidLayout(parsed: unknown): parsed is Layout[] {
   if (parsed.length !== DEFAULT_LAYOUT.length) return false;
   const ids = new Set(parsed.map((p) => (p as Layout)?.i));
   return DEFAULT_LAYOUT.every((d) => ids.has(d.i));
+}
+
+// Reading order of the default desktop layout: top-to-bottom, then left-to-right.
+export const DEFAULT_MOBILE_ORDER: string[] = [...DEFAULT_LAYOUT]
+  .sort((a, b) => a.y - b.y || a.x - b.x)
+  .map((l) => l.i);
+
+// Turn an ordered list of panel ids into a single-column react-grid-layout.
+export function buildMobileLayout(order: string[]): Layout[] {
+  return order.map((id, idx) => ({
+    i: id,
+    x: 0,
+    y: idx * MOBILE_PANEL_H,
+    w: 1,
+    h: MOBILE_PANEL_H,
+    minW: 1,
+    maxW: 1,
+    minH: 6,
+  }));
+}
+
+function isValidOrder(parsed: unknown): parsed is string[] {
+  if (!Array.isArray(parsed)) return false;
+  if (parsed.length !== DEFAULT_LAYOUT.length) return false;
+  const ids = new Set(DEFAULT_LAYOUT.map((d) => d.i));
+  const seen = new Set<string>();
+  for (const id of parsed) {
+    if (typeof id !== 'string' || !ids.has(id) || seen.has(id)) return false;
+    seen.add(id);
+  }
+  return true;
+}
+
+/** Tracks whether the viewport is narrow enough to use the stacked layout. */
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return isMobile;
 }
 
 // Human-readable names for the "hide/restore panels" menu.
@@ -72,6 +124,7 @@ function isValidHidden(parsed: unknown): parsed is string[] {
 export function useDashboardLayout() {
   const [layout, setLayoutState] = useState<Layout[]>(DEFAULT_LAYOUT);
   const [hidden, setHiddenState] = useState<Set<string>>(new Set());
+  const [mobileOrder, setMobileOrderState] = useState<string[]>(DEFAULT_MOBILE_ORDER);
 
   useEffect(() => {
     try {
@@ -79,6 +132,15 @@ export function useDashboardLayout() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (isValidLayout(parsed)) setLayoutState(parsed);
+      }
+    } catch {
+      // localStorage unavailable or corrupt — stay on default
+    }
+    try {
+      const storedOrder = localStorage.getItem(MOBILE_ORDER_KEY);
+      if (storedOrder) {
+        const parsed = JSON.parse(storedOrder);
+        if (isValidOrder(parsed)) setMobileOrderState(parsed);
       }
     } catch {
       // localStorage unavailable or corrupt — stay on default
@@ -99,9 +161,24 @@ export function useDashboardLayout() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   }, []);
 
+  // RGL hands us only the visible items on mobile; derive the new order from
+  // their vertical position and keep any hidden panels parked at the end.
+  const onMobileLayoutChange = useCallback((next: Layout[]) => {
+    setMobileOrderState((prev) => {
+      const visibleOrder = [...next].sort((a, b) => a.y - b.y).map((l) => l.i);
+      const parked = prev.filter((id) => !visibleOrder.includes(id));
+      const order = [...visibleOrder, ...parked];
+      if (!isValidOrder(order)) return prev;
+      try { localStorage.setItem(MOBILE_ORDER_KEY, JSON.stringify(order)); } catch { /* ignore */ }
+      return order;
+    });
+  }, []);
+
   const reset = useCallback(() => {
     setLayoutState(DEFAULT_LAYOUT);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    setMobileOrderState(DEFAULT_MOBILE_ORDER);
+    try { localStorage.removeItem(MOBILE_ORDER_KEY); } catch { /* ignore */ }
     setHiddenState(new Set());
     try { localStorage.removeItem(HIDDEN_STORAGE_KEY); } catch { /* ignore */ }
   }, []);
@@ -115,5 +192,5 @@ export function useDashboardLayout() {
     });
   }, []);
 
-  return { layout, onLayoutChange, reset, hidden, togglePanel };
+  return { layout, onLayoutChange, mobileOrder, onMobileLayoutChange, reset, hidden, togglePanel };
 }

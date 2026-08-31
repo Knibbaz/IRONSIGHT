@@ -22,8 +22,8 @@ import LanguageToggle from '@/components/LanguageToggle';
 import PanelVisibilityMenu from '@/components/PanelVisibilityMenu';
 import { useConflict } from '@/lib/conflicts/context';
 import { useT } from '@/lib/i18n';
-import { useDashboardLayout, PANEL_LABELS } from '@/lib/layout';
-import { useState, useEffect } from 'react';
+import { useDashboardLayout, useIsMobile, buildMobileLayout, PANEL_LABELS } from '@/lib/layout';
+import { useState, useEffect, useMemo } from 'react';
 
 const ConflictMap = dynamic(() => import('@/components/map/ConflictMap'), {
   ssr: false,
@@ -38,7 +38,10 @@ const DashboardGrid = dynamic(() => import('@/components/DashboardGrid'), {
 export default function Dashboard() {
   const { key: conflictKey, config } = useConflict();
   const t = useT();
-  const { layout, onLayoutChange, reset: resetLayout, hidden, togglePanel } = useDashboardLayout();
+  const { layout, onLayoutChange, mobileOrder, onMobileLayoutChange, reset: resetLayout, hidden, togglePanel } = useDashboardLayout();
+  const isMobile = useIsMobile();
+  const [editMode, setEditMode] = useState(false);
+  const mobileLayout = useMemo(() => buildMobileLayout(mobileOrder), [mobileOrder]);
   const [uptime, setUptime] = useState(0);
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'dev';
 
@@ -61,9 +64,9 @@ export default function Dashboard() {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Top bar */}
       <header className="border-b border-[var(--border-color)] bg-[var(--bg-secondary)] shrink-0">
-        <div className="flex items-center justify-between px-4 py-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2 sm:px-4 py-1.5">
           <div className="flex items-center gap-3">
-            <div className="relative w-8 h-8">
+            <div className="relative w-8 h-8 shrink-0">
               <div className="absolute inset-0 rounded-full border border-[var(--cyan)] opacity-30" />
               <div className="absolute inset-1 rounded-full border border-[var(--cyan)] opacity-20" />
               <div className="absolute inset-2 rounded-full border border-[var(--cyan)] opacity-10" />
@@ -74,22 +77,35 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-sm font-bold tracking-[3px] text-[var(--cyan)]">IRONSIGHT</h1>
-              <p className="text-[8px] text-[var(--text-secondary)] tracking-[2px]">
+              <p className="hidden sm:block text-[8px] text-[var(--text-secondary)] tracking-[2px]">
                 {t('header.tagline')}
               </p>
             </div>
             <span
-              className="text-[8px] text-[var(--text-secondary)] px-1 py-0.5 rounded border border-[var(--border-color)]"
+              className="hidden sm:inline-block text-[8px] text-[var(--text-secondary)] px-1 py-0.5 rounded border border-[var(--border-color)]"
               title="Running build version"
             >
               v{appVersion}
             </span>
           </div>
-          <MetricsBar />
-          <div className="flex items-center gap-4 text-[9px] text-[var(--text-secondary)]">
+          <div className="w-full md:w-auto order-last md:order-none overflow-x-auto">
+            <MetricsBar />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[9px] text-[var(--text-secondary)]">
             <LanguageToggle />
             <ConflictToggle />
             <PanelVisibilityMenu panelLabels={PANEL_LABELS} hidden={hidden} onToggle={togglePanel} />
+            <button
+              onClick={() => setEditMode((v) => !v)}
+              className={`text-[9px] tracking-[1px] px-2 py-1 rounded border transition-colors ${
+                editMode
+                  ? 'border-[var(--cyan)] text-[var(--cyan)]'
+                  : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--cyan)] hover:border-[var(--cyan)]'
+              }`}
+              title={t('header.editLayoutTitle')}
+            >
+              {editMode ? t('header.editLayoutOn') : t('header.editLayout')}
+            </button>
             <button
               onClick={resetLayout}
               className="text-[9px] tracking-[1px] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--cyan)] hover:border-[var(--cyan)] transition-colors"
@@ -97,7 +113,7 @@ export default function Dashboard() {
             >
               {t('header.resetLayout')}
             </button>
-            <span>{t('header.session')} {formatUptime(uptime)}</span>
+            <span className="hidden lg:inline">{t('header.session')} {formatUptime(uptime)}</span>
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--green)] animate-pulse" />
               {t('header.live')}
@@ -113,8 +129,10 @@ export default function Dashboard() {
           bottom-right corner to resize. Layout is saved to this browser only
           (localStorage); "Reset layout" restores the default for everyone. */}
       <DashboardGrid
-        layout={layout}
-        onLayoutChange={onLayoutChange}
+        isMobile={isMobile}
+        editMode={editMode}
+        layout={isMobile ? mobileLayout : layout}
+        onLayoutChange={isMobile ? onMobileLayoutChange : onLayoutChange}
         hidden={hidden}
         onHidePanel={togglePanel}
         panels={[
@@ -137,9 +155,9 @@ export default function Dashboard() {
       />
 
       {/* Bottom status bar */}
-      <footer className="border-t border-[var(--border-color)] bg-[var(--bg-secondary)] px-4 py-1 flex items-center justify-between text-[9px] text-[var(--text-secondary)] shrink-0">
-        <span>{t('footer.feeds', { alertSystem: config.client.alertSystemName.toUpperCase() })}</span>
-        <div className="flex items-center gap-4">
+      <footer className="border-t border-[var(--border-color)] bg-[var(--bg-secondary)] px-2 sm:px-4 py-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 text-[9px] text-[var(--text-secondary)] shrink-0">
+        <span className="truncate">{t('footer.feeds', { alertSystem: config.client.alertSystemName.toUpperCase() })}</span>
+        <div className="hidden md:flex items-center gap-4">
           <span>{t('footer.refreshRates')}</span>
           <span>{t('footer.dataSource')}</span>
           <span>{t('footer.classification')}</span>

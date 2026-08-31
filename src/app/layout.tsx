@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { ConflictProvider } from "@/lib/conflicts/context";
@@ -21,6 +21,11 @@ export const metadata: Metadata = {
     "drone tracker",
   ],
   authors: [{ name: "Nobler Works", url: "https://noblerworks.com/" }],
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
