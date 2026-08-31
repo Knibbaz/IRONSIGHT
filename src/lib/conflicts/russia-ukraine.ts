@@ -255,8 +255,26 @@ export const russiaUkraine: ConflictConfig = {
 
     firesBBox: { latMin: 44, latMax: 56, lonMin: 22, lonMax: 48 },
 
-    flightsCenter: { lat: 49, lon: 32, dist: 2500 },
-    flightsBBox: { latMin: 44, latMax: 58, lonMin: 18, lonMax: 50 },
+    // adsb.lol caps the radius feed at 250 nm; keep it honest.
+    flightsCenter: { lat: 49, lon: 32, dist: 250 },
+    // Core theater + western ingress routes (Poland / Slovakia / Romania
+    // airlift staging through to western Russia). Trimmed on the east so the
+    // global /v2/mil feed stops pulling in aircraft deep inside Russia.
+    flightsBBox: { latMin: 44, latMax: 56, lonMin: 14, lonMax: 45 },
+
+    disruptionAirports: [
+      { code: 'KBP', name: 'Kyiv Boryspil', lat: 50.345, lon: 30.895 },
+      { code: 'RZE', name: 'Rzeszów', lat: 50.110, lon: 22.019 },
+      { code: 'WAW', name: 'Warsaw', lat: 52.166, lon: 20.967 },
+      { code: 'KRK', name: 'Kraków', lat: 50.078, lon: 19.785 },
+      { code: 'OTP', name: 'Bucharest', lat: 44.571, lon: 26.085 },
+      { code: 'KIV', name: 'Chișinău', lat: 46.928, lon: 28.931 },
+      { code: 'IST', name: 'Istanbul', lat: 41.262, lon: 28.742 },
+      { code: 'SVO', name: 'Moscow SVO', lat: 55.973, lon: 37.415 },
+      { code: 'VKO', name: 'Moscow VKO', lat: 55.591, lon: 37.261 },
+      { code: 'KRR', name: 'Krasnodar', lat: 45.035, lon: 39.171 },
+      { code: 'ROV', name: 'Rostov', lat: 47.493, lon: 39.924 },
+    ],
 
     newsFeeds: [
       // General wires + section feeds — keyword-filtered (they cover global news)

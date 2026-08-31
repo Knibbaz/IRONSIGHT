@@ -252,8 +252,27 @@ export const iranIsrael: ConflictConfig = {
 
     firesBBox: { latMin: 20, latMax: 42, lonMin: 25, lonMax: 65 },
 
-    flightsCenter: { lat: 30, lon: 48, dist: 2500 },
-    flightsBBox: { latMin: 10, latMax: 45, lonMin: 20, lonMax: 70 },
+    // adsb.lol caps the radius feed at 250 nm; keep it honest.
+    flightsCenter: { lat: 30, lon: 48, dist: 250 },
+    // Core theater + immediate ingress routes (E Med / Cyprus, Red Sea
+    // approaches, W Iran). Tighter than before so the global /v2/mil feed no
+    // longer drags in aircraft over Libya, the Horn of Africa or Kazakhstan.
+    flightsBBox: { latMin: 16, latMax: 42, lonMin: 28, lonMax: 62 },
+
+    disruptionAirports: [
+      { code: 'DXB', name: 'Dubai', lat: 25.253, lon: 55.365 },
+      { code: 'AUH', name: 'Abu Dhabi', lat: 24.433, lon: 54.651 },
+      { code: 'DOH', name: 'Doha', lat: 25.273, lon: 51.608 },
+      { code: 'IKA', name: 'Tehran IKA', lat: 35.416, lon: 51.152 },
+      { code: 'THR', name: 'Tehran Mehrabad', lat: 35.689, lon: 51.313 },
+      { code: 'TLV', name: 'Tel Aviv', lat: 32.011, lon: 34.887 },
+      { code: 'BEY', name: 'Beirut', lat: 33.821, lon: 35.488 },
+      { code: 'AMM', name: 'Amman', lat: 31.723, lon: 35.993 },
+      { code: 'BGW', name: 'Baghdad', lat: 33.262, lon: 44.234 },
+      { code: 'KWI', name: 'Kuwait', lat: 29.227, lon: 47.969 },
+      { code: 'BAH', name: 'Bahrain', lat: 26.271, lon: 50.634 },
+      { code: 'MCT', name: 'Muscat', lat: 23.593, lon: 58.284 },
+    ],
 
     newsFeeds: [
       { url: 'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml', name: 'BBC', unfiltered: true },

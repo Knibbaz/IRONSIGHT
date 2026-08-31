@@ -47,6 +47,13 @@ export interface RegionBox extends BBox {
   name: string;
 }
 
+export interface AirportRef {
+  code: string;  // IATA/ICAO, display only
+  name: string;  // short city/airport label
+  lat: number;
+  lon: number;
+}
+
 export interface TimeZoneEntry {
   label: string;
   zone: string;
@@ -175,6 +182,10 @@ export interface ServerConfig {
   // flights route
   flightsCenter: { lat: number; lon: number; dist: number };
   flightsBBox: BBox;
+
+  // airport-status route: hub airports to watch for ADS-B-derived disruption
+  // (ground stops, holding stacks, go-arounds, closures)
+  disruptionAirports: AirportRef[];
 
   // news route
   newsFeeds: NewsFeedSource[];
